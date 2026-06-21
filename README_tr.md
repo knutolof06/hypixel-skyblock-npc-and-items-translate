@@ -1,4 +1,6 @@
-[🇺🇸 English](README.md) | [🇹🇷 Türkçe](README_tr.md) | [🇷🇺 Русский](README_ru.md) | [🇩🇪 Deutsch](README_de.md) | [🇨🇳 中文](README_zh.md)
+<div align="right">
+  <a href="README.md">🇺🇸 English</a> | <a href="README_tr.md">🇹🇷 Türkçe</a> | <a href="README_ru.md">🇷🇺 Русский</a> | <a href="README_de.md">🇩🇪 Deutsch</a> | <a href="README_zh.md">🇨🇳 中文</a>
+</div>
 
 ---
 

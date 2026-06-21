@@ -1,3 +1,9 @@
+<div align="right">
+  <a href="README.md">🇺🇸 English</a> | <a href="README_tr.md">🇹🇷 Türkçe</a> | <a href="README_ru.md">🇷🇺 Русский</a> | <a href="README_de.md">🇩🇪 Deutsch</a> | <a href="README_zh.md">🇨🇳 中文</a>
+</div>
+
+---
+
 # 🌍 NPC & Items Translator for Hypixel Skyblock & More
 
 Language barrier should never be a problem while enjoying your favorite servers. **NPC & Items Translator** is a fully customizable, intelligent client-side Fabric mod that seamlessly translates NPC chat messages, item descriptions, and GUI tooltips into your preferred language!
