@@ -1,37 +1,30 @@
 {
 	"schemaVersion": 1,
-	"id": "modid",
+	"id": "hypixel-npc-and-items-translate",
 	"version": "${version}",
-	"name": "Example Mod",
-	"description": "This is an example description! Tell everyone what your mod is about!",
+	"name": "NPC & Items Translator",
+	"description": "Translate NPC chat messages, item tooltips and GUI text in Hypixel SkyBlock and more. Supports Google Translate (free) and Groq AI. Client-side only.",
 	"authors": [
-		"Me!"
+		"KALPSIZ__"
 	],
-	"contact": {
-		"homepage": "https://fabricmc.net/",
-		"sources": "https://github.com/FabricMC/fabric-example-mod"
-	},
-	"license": "CC0-1.0",
-	"icon": "assets/modid/icon.png",
-	"environment": "*",
+	"contact": {},
+	"license": "MIT",
+	"icon": "assets/hypixel-npc-and-items-translate/icon.png",
+	"environment": "client",
 	"entrypoints": {
-		"main": [
-			"com.example.ExampleMod"
-		],
 		"client": [
-			"com.example.client.ExampleModClient"
+			"com.npctranslator.NPCTranslatorClient"
+		],
+		"modmenu": [
+			"com.npctranslator.config.ModMenuIntegration"
 		]
 	},
 	"mixins": [
-		"modid.mixins.json",
-		{
-			"config": "modid.client.mixins.json",
-			"environment": "client"
-		}
+		"npc_translator.mixins.json"
 	],
 	"depends": {
 		"fabricloader": ">=0.19.2",
-		"minecraft": "~1.21.4",
+		"minecraft": ">=1.21.4",
 		"java": ">=21",
 		"fabric-api": "*"
 	}
