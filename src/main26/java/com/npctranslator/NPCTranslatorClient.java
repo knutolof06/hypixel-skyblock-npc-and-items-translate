@@ -6,24 +6,24 @@ import com.google.gson.JsonObject;
 import com.npctranslator.config.ModConfig;
 import com.npctranslator.mixin.ChatHudAccessor;
 import net.fabricmc.api.ClientModInitializer;
-import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
+import net.fabricmc.fabric.api.client.keymapping.v1.KeyMappingHelper;
 import net.fabricmc.fabric.api.client.message.v1.ClientReceiveMessageEvents;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gui.hud.ChatHud;
-import net.minecraft.client.gui.hud.ChatHudLine;
-import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.client.option.KeyBinding;
-import net.minecraft.client.util.InputUtil;
-import net.minecraft.client.util.Window;
-import net.minecraft.item.ItemStack;
-import net.minecraft.text.ClickEvent;
-import net.minecraft.text.HoverEvent;
-import net.minecraft.text.MutableText;
-import net.minecraft.text.Style;
-import net.minecraft.text.Text;
-import net.minecraft.text.TextColor;
-import net.minecraft.util.Formatting;
-import net.minecraft.util.Identifier;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.components.ChatComponent;
+import net.minecraft.client.multiplayer.chat.GuiMessage;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.KeyMapping;
+import com.mojang.blaze3d.platform.InputConstants;
+import com.mojang.blaze3d.platform.Window;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.network.chat.ClickEvent;
+import net.minecraft.network.chat.HoverEvent;
+import net.minecraft.network.chat.MutableComponent;
+import net.minecraft.network.chat.Style;
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.TextColor;
+import net.minecraft.ChatFormatting;
+// Removed ResourceLocation import
 import org.lwjgl.glfw.GLFW;
 
 import java.net.URI;
@@ -39,17 +39,19 @@ public class NPCTranslatorClient implements ClientModInitializer {
     private static ModConfig config;
     private static final HttpClient HTTP_CLIENT = HttpClient.newHttpClient();
     private static final Gson GSON = new Gson();
-    public static KeyBinding keyTranslateGoogle;
-    public static KeyBinding keyTranslateGemini;
-    public static KeyBinding keyTranslateGroq;
-    public static KeyBinding keyRevertTranslation;
-    public static KeyBinding menuKey;
+    public static KeyMapping keyTranslateGoogle;
+    public static KeyMapping keyTranslateGemini;
+    public static KeyMapping keyTranslateGroq;
+    public static KeyMapping keyRevertTranslation;
+    public static KeyMapping menuKey;
 
     private static final Map<String, ModConfig.TranslationProvider> TRANSLATED_PROVIDER_CACHE = new ConcurrentHashMap<>();
     
-    public static final Map<String, List<Text>> ITEM_CACHE = new ConcurrentHashMap<>();
+    public static final Map<String, List<Component>> ITEM_CACHE = new ConcurrentHashMap<>();
     private static final Set<String> PENDING_ITEMS = Collections.newSetFromMap(new ConcurrentHashMap<>());
-    private static final Map<String, Text> ORIGINAL_MESSAGES = new ConcurrentHashMap<>();
+    // WeakHashMap to track tooltips processed by ItemStackMixin without modifying them
+    public static final java.util.Map<List<Component>, Boolean> PROCESSED_TOOLTIPS = new java.util.WeakHashMap<>();
+    private static final Map<String, Component> ORIGINAL_MESSAGES = new ConcurrentHashMap<>();
     private static final Set<String> REVERTED_ITEMS = Collections.newSetFromMap(new ConcurrentHashMap<>());
     private static final java.util.concurrent.atomic.AtomicInteger messageCounter = new java.util.concurrent.atomic.AtomicInteger(0);
     private static final Map<String, String> MESSAGE_ID_TO_BASE64 = new ConcurrentHashMap<>();
@@ -64,60 +66,170 @@ public class NPCTranslatorClient implements ClientModInitializer {
     private static boolean lastGeminiState = false;
     private static boolean lastGroqState = false;
     private static boolean lastRevertState = false;
+    private static long animationTick = 0;
 
-    private static boolean isKeyCurrentlyDown(KeyBinding keyBinding) {
-        MinecraftClient client = MinecraftClient.getInstance();
-        if (client == null || client.getWindow() == null) return false;
-        InputUtil.Key boundKey = KeyBindingHelper.getBoundKeyOf(keyBinding);
-        if (boundKey.getCategory() == InputUtil.Type.KEYSYM && boundKey.getCode() != -1) {
-            return InputUtil.isKeyPressed(client.getWindow(), boundKey.getCode());
-        } else if (boundKey.getCategory() == InputUtil.Type.MOUSE && boundKey.getCode() != -1) {
-            return GLFW.glfwGetMouseButton(client.getWindow().getHandle(), boundKey.getCode()) == GLFW.GLFW_PRESS;
+    private static ChatComponent getChatComponent(Minecraft client) {
+        try {
+            // Try 26.1
+            java.lang.reflect.Method getChat = client.gui.getClass().getMethod("getChat");
+            return (ChatComponent) getChat.invoke(client.gui);
+        } catch (Exception e) {
+            try {
+                // Try 26.2
+                java.lang.reflect.Field hudField = client.gui.getClass().getField("hud");
+                Object hud = hudField.get(client.gui);
+                java.lang.reflect.Method getChat = hud.getClass().getMethod("getChat");
+                return (ChatComponent) getChat.invoke(hud);
+            } catch (Exception ex) {
+                ex.printStackTrace();
+                return null;
+            }
         }
-        return false;
+    }
+
+    public static void setScreen(Minecraft client, Screen screen) {
+        try {
+            // Try 1.21.11 and 26.1
+            java.lang.reflect.Method setScreenMethod = client.getClass().getMethod("setScreen", Screen.class);
+            setScreenMethod.invoke(client, screen);
+        } catch (Exception e) {
+            try {
+                // Try 26.2
+                java.lang.reflect.Method setScreenMethod = client.gui.getClass().getMethod("setScreen", Screen.class);
+                setScreenMethod.invoke(client.gui, screen);
+            } catch (Exception ex) {
+                ex.printStackTrace();
+            }
+        }
+    }
+
+    public static Screen getScreen(Minecraft client) {
+        try {
+            // Try 1.21.11 and 26.1
+            java.lang.reflect.Field screenField = client.getClass().getField("screen");
+            return (Screen) screenField.get(client);
+        } catch (Exception e) {
+            try {
+                // Try 26.2
+                java.lang.reflect.Method screenMethod = client.gui.getClass().getMethod("screen");
+                return (Screen) screenMethod.invoke(client.gui);
+            } catch (Exception ex) {
+                ex.printStackTrace();
+                return null;
+            }
+        }
+    }
+
+    private static boolean isKeyCurrentlyDown(KeyMapping keyMapping) {
+        Minecraft client = Minecraft.getInstance();
+        if (client == null || client.getWindow() == null) return keyMapping.isDown();
+        try {
+            com.mojang.blaze3d.platform.InputConstants.Key key = com.mojang.blaze3d.platform.InputConstants.getKey(keyMapping.saveString());
+            int keyCode = key.getValue();
+            if (keyCode >= 0) {
+                if (keyMapping.saveString().startsWith("key.mouse.")) {
+                    return org.lwjgl.glfw.GLFW.glfwGetMouseButton(client.getWindow().handle(), keyCode) == org.lwjgl.glfw.GLFW.GLFW_PRESS;
+                } else {
+                    return org.lwjgl.glfw.GLFW.glfwGetKey(client.getWindow().handle(), keyCode) == org.lwjgl.glfw.GLFW.GLFW_PRESS;
+                }
+            }
+        } catch (Exception e) {}
+        return keyMapping.isDown();
     }
 
     @Override
     public void onInitializeClient() {
+        TranslationDictionary.load();
         ModConfig.load();
         config = ModConfig.INSTANCE;
 
-        KeyBinding.Category modCategory = KeyBinding.Category.create(Identifier.of("npctranslator", "keys"));
+        net.minecraft.client.KeyMapping.Category customCategory = net.minecraft.client.KeyMapping.Category.MISC;
+        try {
+            // Try all possible names for ResourceLocation/Identifier depending on mapping (Fabric vs NeoForge/Mojmap)
+            String[] classNames = { "net.minecraft.resources.Identifier", "net.minecraft.resources.ResourceLocation", "net.minecraft.util.Identifier" };
+            Class<?> idClass = null;
+            for (String name : classNames) {
+                try {
+                    idClass = Class.forName(name);
+                    break;
+                } catch (Exception ignored) {}
+            }
+            
+            if (idClass != null) {
+                // Try parse or fromNamespaceAndPath
+                Object idObj = null;
+                try {
+                    idObj = idClass.getMethod("parse", String.class).invoke(null, "npctranslator:keys");
+                } catch (Exception e1) {
+                    try {
+                        idObj = idClass.getMethod("fromNamespaceAndPath", String.class, String.class).invoke(null, "npctranslator", "keys");
+                    } catch (Exception e2) {}
+                }
+                
+                if (idObj != null) {
+                    // Try to register (Fabric API)
+                    try {
+                        java.lang.reflect.Method regMethod = net.minecraft.client.KeyMapping.Category.class.getMethod("register", idClass);
+                        customCategory = (net.minecraft.client.KeyMapping.Category) regMethod.invoke(null, idObj);
+                    } catch (Exception e3) {
+                        // Try NeoForge constructor
+                        try {
+                            java.lang.reflect.Constructor<?> constructor = net.minecraft.client.KeyMapping.Category.class.getConstructor(idClass);
+                            customCategory = (net.minecraft.client.KeyMapping.Category) constructor.newInstance(idObj);
+                        } catch (Exception e4) {
+                            try {
+                                java.lang.reflect.Constructor<?> constructor = net.minecraft.client.KeyMapping.Category.class.getConstructor(String.class);
+                                customCategory = (net.minecraft.client.KeyMapping.Category) constructor.newInstance("key.category.npctranslator.keys");
+                            } catch (Exception ignored) {}
+                        }
+                    }
+                }
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
 
-        keyTranslateGoogle = KeyBindingHelper.registerKeyBinding(new KeyBinding(
+        final net.minecraft.client.KeyMapping.Category finalCategory = customCategory;
+
+        keyTranslateGoogle = new KeyMapping(
                 "key.npctranslator.translate.google",
-                InputUtil.Type.KEYSYM,
+                InputConstants.Type.KEYSYM,
                 GLFW.GLFW_KEY_G,
-                modCategory
-        ));
+                finalCategory
+        );
+        KeyMappingHelper.registerKeyMapping(keyTranslateGoogle);
 
-        keyTranslateGemini = KeyBindingHelper.registerKeyBinding(new KeyBinding(
+        keyTranslateGemini = new KeyMapping(
                 "key.npctranslator.translate.gemini",
-                InputUtil.Type.KEYSYM,
+                InputConstants.Type.KEYSYM,
                 GLFW.GLFW_KEY_X,
-                modCategory
-        ));
+                finalCategory
+        );
+        KeyMappingHelper.registerKeyMapping(keyTranslateGemini);
 
-        keyTranslateGroq = KeyBindingHelper.registerKeyBinding(new KeyBinding(
+        keyTranslateGroq = new KeyMapping(
                 "key.npctranslator.translate.groq",
-                InputUtil.Type.KEYSYM,
+                InputConstants.Type.KEYSYM,
                 GLFW.GLFW_KEY_C,
-                modCategory
-        ));
+                finalCategory
+        );
+        KeyMappingHelper.registerKeyMapping(keyTranslateGroq);
 
-        keyRevertTranslation = KeyBindingHelper.registerKeyBinding(new KeyBinding(
+        keyRevertTranslation = new KeyMapping(
                 "key.npctranslator.translate.revert",
-                InputUtil.Type.KEYSYM,
+                InputConstants.Type.KEYSYM,
                 GLFW.GLFW_KEY_V,
-                modCategory
-        ));
+                finalCategory
+        );
+        KeyMappingHelper.registerKeyMapping(keyRevertTranslation);
         
-        menuKey = KeyBindingHelper.registerKeyBinding(new KeyBinding(
+        menuKey = new KeyMapping(
                 "key.npctranslator.menu",
-                InputUtil.Type.KEYSYM,
+                InputConstants.Type.KEYSYM,
                 GLFW.GLFW_KEY_Z,
-                modCategory
-        ));
+                finalCategory
+        );
+        KeyMappingHelper.registerKeyMapping(menuKey);
 
         ClientReceiveMessageEvents.MODIFY_GAME.register((text, overlay) -> {
             if (!config.enabled) return text;
@@ -137,16 +249,16 @@ public class NPCTranslatorClient implements ClientModInitializer {
 
             if (shouldAutoTranslate) {
                 handleTranslation(msgId);
-                return Text.empty().append(text.copy()).append(Text.literal("\u200B").styled(s -> s.withClickEvent(new ClickEvent.RunCommand("/translate_npc " + msgId))));
+                return Component.empty().append(text.copy()).append(Component.literal("\u200B").withStyle(s -> s.withClickEvent(new ClickEvent.RunCommand("/translate_npc " + msgId))));
             }
 
-            MutableText originalMessage = text.copy();
-            MutableText translateButton = Text.translatable("npctranslator.button")
+            MutableComponent originalMessage = text.copy();
+            MutableComponent translateButton = Component.translatable("npctranslator.button")
                     .append(" ")
-                    .styled(style -> style.withColor(Formatting.AQUA)
+                    .withStyle(style -> style.withColor(ChatFormatting.AQUA)
                             .withClickEvent(new ClickEvent.RunCommand("/translate_npc " + msgId))
-                            .withHoverEvent(new HoverEvent.ShowText(Text.translatable("npctranslator.hover"))));
-            return Text.empty().append(translateButton).append(originalMessage);
+                            .withHoverEvent(new HoverEvent.ShowText(Component.translatable("npctranslator.hover"))));
+            return Component.empty().append(translateButton).append(originalMessage);
         });
 
         net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents.END_CLIENT_TICK.register(client -> {
@@ -167,26 +279,56 @@ public class NPCTranslatorClient implements ClientModInitializer {
             lastRevertState = pRevert;
 
             TOGGLED_THIS_TICK.clear();
+            animationTick++;
             
-            while (menuKey.wasPressed()) {
+            while (menuKey.consumeClick()) {
                 openSettings();
             }
         });
 
         net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents.JOIN.register((handler, sender, client) -> {
             if (!config.hasSeenWelcomeScreen) {
-                client.execute(() -> {
-                    client.setScreen(new com.npctranslator.gui.WelcomeScreen());
+            client.execute(() -> {
+                    setScreen(client, new com.npctranslator.gui.WelcomeScreen());
                 });
             }
         });
 
+        // Oyun kapanınca (sunucudan ayrılınca) sözlüğü sil
+        net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> {
+            TranslationDictionary.clear();
+            ITEM_CACHE.clear();
+            PENDING_ITEMS.clear();
+            ACTIVE_TRANSLATED_ITEMS.clear();
+            REVERTED_ITEMS.clear();
+        });
+
         net.fabricmc.fabric.api.client.command.v2.ClientCommandRegistrationCallback.EVENT.register((dispatcher, registryAccess) -> {
-            dispatcher.register(net.fabricmc.fabric.api.client.command.v2.ClientCommandManager.literal("translate")
+            dispatcher.register((com.mojang.brigadier.builder.LiteralArgumentBuilder) com.mojang.brigadier.builder.LiteralArgumentBuilder.literal("translate")
                 .executes(context -> {
                     openSettings();
                     return 1;
                 })
+                .then(com.mojang.brigadier.builder.LiteralArgumentBuilder.literal("DeleteDict")
+                    .executes(context -> {
+                        int count = TranslationDictionary.size();
+                        TranslationDictionary.clear();
+                        ITEM_CACHE.clear();
+                        Minecraft.getInstance().player.sendSystemMessage(Component.literal("§a✅ Sözlük silindi! (" + count + " kayıt temizlendi)"));
+                        return 1;
+                    })
+                )
+                .then(com.mojang.brigadier.builder.LiteralArgumentBuilder.literal("Delete")
+                    .then(com.mojang.brigadier.builder.LiteralArgumentBuilder.literal("dictionary")
+                        .executes(context -> {
+                            int count = TranslationDictionary.size();
+                            TranslationDictionary.clear();
+                            ITEM_CACHE.clear();
+                            Minecraft.getInstance().player.sendSystemMessage(Component.literal("§a✅ Sözlük silindi! (" + count + " kayıt temizlendi)"));
+                            return 1;
+                        })
+                    )
+                )
             );
         });
     }
@@ -198,21 +340,24 @@ public class NPCTranslatorClient implements ClientModInitializer {
     }
 
     public static void setApiKey(String apiKey) {
-        MinecraftClient client = MinecraftClient.getInstance();
+        Minecraft client = Minecraft.getInstance();
         config.groqApiKey = apiKey;
         ModConfig.save();
         client.execute(() -> {
-            client.inGameHud.getChatHud().addMessage(
-                    Text.translatable("npctranslator.key_saved").formatted(Formatting.GREEN));
+            ChatComponent chat = getChatComponent(client);
+            if (chat != null) chat.addClientSystemMessage(
+                    Component.translatable("npctranslator.key_saved").withStyle(ChatFormatting.GREEN));
         });
     }
 
     public static void openSettings() {
-        MinecraftClient client = MinecraftClient.getInstance();
-        client.execute(() -> {
-            Screen screen = new com.npctranslator.gui.HubScreen();
-            client.setScreen(screen);
-        });
+        Minecraft client = Minecraft.getInstance();
+        if (client != null) {
+            client.execute(() -> {
+                Screen screen = new com.npctranslator.gui.HubScreen();
+                setScreen(client, screen);
+            });
+        }
     }
 
     public static void reloadConfig() {
@@ -220,16 +365,17 @@ public class NPCTranslatorClient implements ClientModInitializer {
         config = ModConfig.INSTANCE;
     }
 
-    private static void replaceMessageInChat(MinecraftClient client, String searchMarker, Text newMessage) {
-        ChatHud chatHud = client.inGameHud.getChatHud();
+    private static void replaceMessageInChat(Minecraft client, String searchMarker, Component newMessage) {
+        ChatComponent chatHud = getChatComponent(client);
+        if (chatHud == null) return;
         ChatHudAccessor accessor = (ChatHudAccessor) chatHud;
-        List<ChatHudLine> messages = accessor.getMessages();
+        List<GuiMessage> messages = accessor.getMessages();
         // First try exact marker match (for unique ID commands embedded in click events)
         for (int i = 0; i < messages.size(); i++) {
-            ChatHudLine line = messages.get(i);
+            GuiMessage line = messages.get(i);
             String fullStyled = extractClickCommands(line.content());
             if (fullStyled.contains(searchMarker)) {
-                ChatHudLine newLine = new ChatHudLine(line.creationTick(), newMessage, line.signature(), line.indicator());
+                GuiMessage newLine = new GuiMessage(line.addedTime(), newMessage, null, null, null);
                 messages.set(i, newLine);
                 int scroll = accessor.getScrolledLines();
                 accessor.invokeRefresh();
@@ -240,10 +386,10 @@ public class NPCTranslatorClient implements ClientModInitializer {
         // Fallback: text content match (for auto-translate)
         String searchText = searchMarker.trim();
         for (int i = 0; i < messages.size(); i++) {
-            ChatHudLine line = messages.get(i);
+            GuiMessage line = messages.get(i);
             String lineText = line.content().getString();
             if (lineText.contains(searchText) || searchText.contains(lineText.trim())) {
-                ChatHudLine newLine = new ChatHudLine(line.creationTick(), newMessage, line.signature(), line.indicator());
+                GuiMessage newLine = new GuiMessage(line.addedTime(), newMessage, null, null, null);
                 messages.set(i, newLine);
                 int scroll = accessor.getScrolledLines();
                 accessor.invokeRefresh();
@@ -253,35 +399,65 @@ public class NPCTranslatorClient implements ClientModInitializer {
         }
     }
 
-    private static String extractClickCommands(Text text) {
+    private static String extractClickCommands(Component text) {
         StringBuilder sb = new StringBuilder();
         if (text.getStyle() != null && text.getStyle().getClickEvent() instanceof ClickEvent.RunCommand runCmd) {
             sb.append(runCmd.command());
         }
-        for (Text sibling : text.getSiblings()) {
+        for (Component sibling : text.getSiblings()) {
             sb.append(extractClickCommands(sibling));
         }
         return sb.toString();
     }
 
-    private static final java.util.Map<Formatting, Character> FORMAT_TO_CODE = new java.util.HashMap<>();
+    // Hardcoded § code -> ChatFormatting map (avoids byCode() which may not exist in all MC versions)
+    private static final java.util.Map<Character, ChatFormatting> CODE_TO_FORMAT = new java.util.HashMap<>();
+    // Color RGB -> § code map for textToFormattedString
+    private static final java.util.Map<Integer, Character> COLOR_TO_CODE = new java.util.HashMap<>();
     static {
-        for (Formatting f : Formatting.values()) {
-            if (f.getCode() != 0) FORMAT_TO_CODE.put(f, f.getCode());
-        }
+        CODE_TO_FORMAT.put('0', ChatFormatting.BLACK);
+        CODE_TO_FORMAT.put('1', ChatFormatting.DARK_BLUE);
+        CODE_TO_FORMAT.put('2', ChatFormatting.DARK_GREEN);
+        CODE_TO_FORMAT.put('3', ChatFormatting.DARK_AQUA);
+        CODE_TO_FORMAT.put('4', ChatFormatting.DARK_RED);
+        CODE_TO_FORMAT.put('5', ChatFormatting.DARK_PURPLE);
+        CODE_TO_FORMAT.put('6', ChatFormatting.GOLD);
+        CODE_TO_FORMAT.put('7', ChatFormatting.GRAY);
+        CODE_TO_FORMAT.put('8', ChatFormatting.DARK_GRAY);
+        CODE_TO_FORMAT.put('9', ChatFormatting.BLUE);
+        CODE_TO_FORMAT.put('a', ChatFormatting.GREEN);
+        CODE_TO_FORMAT.put('b', ChatFormatting.AQUA);
+        CODE_TO_FORMAT.put('c', ChatFormatting.RED);
+        CODE_TO_FORMAT.put('d', ChatFormatting.LIGHT_PURPLE);
+        CODE_TO_FORMAT.put('e', ChatFormatting.YELLOW);
+        CODE_TO_FORMAT.put('f', ChatFormatting.WHITE);
+        CODE_TO_FORMAT.put('k', ChatFormatting.OBFUSCATED);
+        CODE_TO_FORMAT.put('l', ChatFormatting.BOLD);
+        CODE_TO_FORMAT.put('m', ChatFormatting.STRIKETHROUGH);
+        CODE_TO_FORMAT.put('n', ChatFormatting.UNDERLINE);
+        CODE_TO_FORMAT.put('o', ChatFormatting.ITALIC);
+        CODE_TO_FORMAT.put('r', ChatFormatting.RESET);
+        // Build color code lookup
+        int[] colorCodes = {0x000000,0x0000AA,0x00AA00,0x00AAAA,0xAA0000,0xAA00AA,0xFFAA00,0xAAAAAA,0x555555,0x5555FF,0x55FF55,0x55FFFF,0xFF5555,0xFF55FF,0xFFFF55,0xFFFFFF};
+        char[] chars =    {'0','1','2','3','4','5','6','7','8','9','a','b','c','d','e','f'};
+        for (int i = 0; i < colorCodes.length; i++) COLOR_TO_CODE.put(colorCodes[i], chars[i]);
     }
+    // Color ChatFormatting set for quick lookup
+    private static final java.util.Set<ChatFormatting> COLOR_FORMATS = new java.util.HashSet<>(java.util.Arrays.asList(
+        ChatFormatting.BLACK, ChatFormatting.DARK_BLUE, ChatFormatting.DARK_GREEN, ChatFormatting.DARK_AQUA,
+        ChatFormatting.DARK_RED, ChatFormatting.DARK_PURPLE, ChatFormatting.GOLD, ChatFormatting.GRAY,
+        ChatFormatting.DARK_GRAY, ChatFormatting.BLUE, ChatFormatting.GREEN, ChatFormatting.AQUA,
+        ChatFormatting.RED, ChatFormatting.LIGHT_PURPLE, ChatFormatting.YELLOW, ChatFormatting.WHITE
+    ));
 
-    private static String textToFormattedString(Text text) {
+    private static String textToFormattedString(Component text) {
         StringBuilder sb = new StringBuilder();
         text.visit((style, string) -> {
             // Apply color
             if (style != null && style.getColor() != null) {
-                for (Formatting f : Formatting.values()) {
-                    if (f.isColor() && style.getColor().equals(net.minecraft.text.TextColor.fromFormatting(f))) {
-                        sb.append('\u00A7').append(f.getCode());
-                        break;
-                    }
-                }
+                int rgb = style.getColor().getValue() & 0xFFFFFF;
+                Character c = COLOR_TO_CODE.get(rgb);
+                if (c != null) sb.append('\u00A7').append(c);
             }
             // Apply decorations
             if (style != null) {
@@ -294,39 +470,39 @@ public class NPCTranslatorClient implements ClientModInitializer {
             sb.append(string);
             sb.append("\u00A7r"); // Reset to prevent bleeding
             return java.util.Optional.empty();
-        }, net.minecraft.text.Style.EMPTY);
+        }, net.minecraft.network.chat.Style.EMPTY);
         return sb.toString();
     }
 
-    private static MutableText formattedStringToText(String formatted) {
-        MutableText result = Text.empty();
+    private static MutableComponent formattedStringToText(String formatted) {
+        MutableComponent result = Component.empty();
         StringBuilder current = new StringBuilder();
-        Formatting currentColor = null;
+        ChatFormatting currentColor = null;
         boolean bold = false, italic = false, underline = false, strikethrough = false, obfuscated = false;
 
         for (int i = 0; i < formatted.length(); i++) {
             if (formatted.charAt(i) == '\u00A7' && i + 1 < formatted.length()) {
                 // Flush current segment
                 if (current.length() > 0) {
-                    MutableText segment = Text.literal(current.toString());
+                    MutableComponent segment = Component.literal(current.toString());
                     applyStyle(segment, currentColor, bold, italic, underline, strikethrough, obfuscated);
                     result.append(segment);
                     current.setLength(0);
                 }
-                char code = formatted.charAt(i + 1);
-                Formatting fmt = Formatting.byCode(code);
+                char code = Character.toLowerCase(formatted.charAt(i + 1));
+                ChatFormatting fmt = CODE_TO_FORMAT.get(code);
                 if (fmt != null) {
-                    if (fmt.isColor()) {
+                    if (COLOR_FORMATS.contains(fmt)) {
                         currentColor = fmt;
                         bold = false; italic = false; underline = false; strikethrough = false; obfuscated = false;
-                    } else if (fmt == Formatting.RESET) {
+                    } else if (fmt == ChatFormatting.RESET) {
                         currentColor = null;
                         bold = false; italic = false; underline = false; strikethrough = false; obfuscated = false;
-                    } else if (fmt == Formatting.BOLD) bold = true;
-                    else if (fmt == Formatting.ITALIC) italic = true;
-                    else if (fmt == Formatting.UNDERLINE) underline = true;
-                    else if (fmt == Formatting.STRIKETHROUGH) strikethrough = true;
-                    else if (fmt == Formatting.OBFUSCATED) obfuscated = true;
+                    } else if (fmt == ChatFormatting.BOLD) bold = true;
+                    else if (fmt == ChatFormatting.ITALIC) italic = true;
+                    else if (fmt == ChatFormatting.UNDERLINE) underline = true;
+                    else if (fmt == ChatFormatting.STRIKETHROUGH) strikethrough = true;
+                    else if (fmt == ChatFormatting.OBFUSCATED) obfuscated = true;
                 }
                 i++; // skip code char
             } else {
@@ -335,25 +511,27 @@ public class NPCTranslatorClient implements ClientModInitializer {
         }
         // Flush remaining
         if (current.length() > 0) {
-            MutableText segment = Text.literal(current.toString());
+            MutableComponent segment = Component.literal(current.toString());
             applyStyle(segment, currentColor, bold, italic, underline, strikethrough, obfuscated);
             result.append(segment);
         }
         return result;
     }
 
-    private static void applyStyle(MutableText text, Formatting color, boolean bold, boolean italic, boolean underline, boolean strikethrough, boolean obfuscated) {
-        if (color != null) text.formatted(color);
-        if (bold) text.formatted(Formatting.BOLD);
-        if (italic) text.formatted(Formatting.ITALIC);
-        if (underline) text.formatted(Formatting.UNDERLINE);
-        if (strikethrough) text.formatted(Formatting.STRIKETHROUGH);
-        if (obfuscated) text.formatted(Formatting.OBFUSCATED);
+    private static void applyStyle(MutableComponent text, ChatFormatting color, boolean bold, boolean italic, boolean underline, boolean strikethrough, boolean obfuscated) {
+        Style s = Style.EMPTY;
+        if (color != null) s = s.applyFormat(color);
+        if (bold) s = s.applyFormat(ChatFormatting.BOLD);
+        if (italic) s = s.applyFormat(ChatFormatting.ITALIC);
+        if (underline) s = s.applyFormat(ChatFormatting.UNDERLINE);
+        if (strikethrough) s = s.applyFormat(ChatFormatting.STRIKETHROUGH);
+        if (obfuscated) s = s.applyFormat(ChatFormatting.OBFUSCATED);
+        text.withStyle(s);
     }
 
     public static void handleTranslation(String msgId) {
         reloadConfig();
-        MinecraftClient client = MinecraftClient.getInstance();
+        Minecraft client = Minecraft.getInstance();
 
         String base64Message = MESSAGE_ID_TO_BASE64.get(msgId);
         if (base64Message == null) {
@@ -368,18 +546,18 @@ public class NPCTranslatorClient implements ClientModInitializer {
         } catch (Exception e) { return; }
 
         if (config.chatTranslationProvider == ModConfig.TranslationProvider.GROQ && (config.groqApiKey == null || config.groqApiKey.isEmpty())) {
-            client.execute(() -> client.inGameHud.getChatHud().addMessage(Text.translatable("npctranslator.error.config").formatted(Formatting.RED)));
+            client.execute(() -> { ChatComponent c = getChatComponent(client); if(c!=null) c.addClientSystemMessage(Component.translatable("npctranslator.error.config").withStyle(ChatFormatting.RED)); });
             return;
         }
         if (config.chatTranslationProvider == ModConfig.TranslationProvider.GEMINI && (config.geminiApiKey == null || config.geminiApiKey.isEmpty())) {
-            client.execute(() -> client.inGameHud.getChatHud().addMessage(Text.translatable("npctranslator.error.config").formatted(Formatting.RED)));
+            client.execute(() -> { ChatComponent c = getChatComponent(client); if(c!=null) c.addClientSystemMessage(Component.translatable("npctranslator.error.config").withStyle(ChatFormatting.RED)); });
             return;
         }
 
         String targetLangName;
         String displayLanguageCode;
         if (config.useGameLanguage) {
-            String userLanguage = client.options.language;
+            String userLanguage = client.options.languageCode;
             targetLangName = "the language for locale: " + userLanguage;
             displayLanguageCode = userLanguage.contains("_") ? userLanguage.split("_")[0] : "tr";
         } else {
@@ -393,14 +571,14 @@ public class NPCTranslatorClient implements ClientModInitializer {
             ClickEvent tempClickEvent = null;
             try {
                 // Convert original message to §-coded string to preserve colors
-                Text originalMsg = ORIGINAL_MESSAGES.get(msgId);
+                Component originalMsg = ORIGINAL_MESSAGES.get(msgId);
                 if (originalMsg != null) {
                     tempFormattedInput = textToFormattedString(originalMsg);
                     // Extract click event
                     if (originalMsg.getStyle() != null && originalMsg.getStyle().getClickEvent() != null) {
                         tempClickEvent = originalMsg.getStyle().getClickEvent();
                     } else {
-                        for (Text sibling : originalMsg.getSiblings()) {
+                        for (Component sibling : originalMsg.getSiblings()) {
                             if (sibling.getStyle() != null && sibling.getStyle().getClickEvent() != null) {
                                 tempClickEvent = sibling.getStyle().getClickEvent();
                                 break;
@@ -413,18 +591,18 @@ public class NPCTranslatorClient implements ClientModInitializer {
 
                 String translatedText = getTranslatedText(formattedInput, displayLanguageCode, targetLangName, false, config.chatTranslationProvider);
 
-                MutableText prefix = Text.translatable("npctranslator.translated", displayLanguageCode.toUpperCase())
-                    .styled(style -> style.withColor(Formatting.GREEN)
+                MutableComponent prefix = Component.translatable("npctranslator.translated", displayLanguageCode.toUpperCase())
+                    .withStyle(style -> style.withColor(ChatFormatting.GREEN)
                         .withClickEvent(new ClickEvent.RunCommand("/revert_npc " + msgId))
-                        .withHoverEvent(new HoverEvent.ShowText(Text.translatable("npctranslator.hover_revert"))));
+                        .withHoverEvent(new HoverEvent.ShowText(Component.translatable("npctranslator.hover_revert"))));
 
                 // Parse §-coded translated text back into colored Text
-                MutableText translationContent = formattedStringToText(translatedText);
+                MutableComponent translationContent = formattedStringToText(translatedText);
                 if (finalClickEvent != null) {
-                    translationContent.styled(s -> s.withClickEvent(finalClickEvent));
+                    translationContent.withStyle(s -> s.withClickEvent(finalClickEvent));
                 }
 
-                MutableText translatedMessage = Text.empty().append(prefix).append(translationContent);
+                MutableComponent translatedMessage = Component.empty().append(prefix).append(translationContent);
                 client.execute(() -> replaceMessageInChat(client, searchMarker, translatedMessage));
             } catch (Exception e) {
                 e.printStackTrace();
@@ -460,7 +638,7 @@ public class NPCTranslatorClient implements ClientModInitializer {
                 JsonObject systemMessage = new JsonObject();
                 systemMessage.addProperty("role", "system");
                 if (isTooltip) {
-                    systemMessage.addProperty("content", "Translate Minecraft item tooltip to " + langName + ". CRITICAL: Keep all Minecraft § color codes. Maintain exact line order and spacing. Output ONLY translation.");
+                    systemMessage.addProperty("content", "Translate Minecraft item tooltip to " + langName + ". CRITICAL: Keep all Minecraft § color codes. You will receive lines prefixed with 'ID|'. You MUST return each translated line prefixed with the EXACT SAME 'ID|'. Output ONLY the translated lines.");
                 } else {
                     systemMessage.addProperty("content", "Translate Minecraft NPC chat to " + langName + ". CRITICAL: Keep ALL Minecraft § color/formatting codes (like §e, §f, §l, §o etc) exactly where they are. DO NOT translate speaker names, player names, or prefixes. ONLY translate the actual message content. Output ONLY the final translated line with § codes preserved.");
                 }
@@ -496,7 +674,7 @@ public class NPCTranslatorClient implements ClientModInitializer {
             JsonObject systemInstruction = new JsonObject();
             JsonObject partsObjSys = new JsonObject();
             if (isTooltip) {
-                partsObjSys.addProperty("text", "Translate Minecraft item tooltip to " + langName + ". CRITICAL: Keep all Minecraft § color codes. Maintain exact line order and spacing. Output ONLY translation.");
+                partsObjSys.addProperty("text", "Translate Minecraft item tooltip to " + langName + ". CRITICAL: Keep all Minecraft § color codes. You will receive lines prefixed with 'ID|'. You MUST return each translated line prefixed with the EXACT SAME 'ID|'. Output ONLY the translated lines.");
             } else {
                 partsObjSys.addProperty("text", "Translate Minecraft NPC chat to " + langName + ". CRITICAL: Keep ALL Minecraft § color/formatting codes (like §e, §f, §l, §o etc) exactly where they are. DO NOT translate speaker names, player names, or prefixes. ONLY translate the actual message content. Output ONLY the final translated line with § codes preserved.");
             }
@@ -516,6 +694,16 @@ public class NPCTranslatorClient implements ClientModInitializer {
             contents.add(contentObj);
             
             jsonBody.add("contents", contents);
+
+            JsonArray safetySettings = new JsonArray();
+            String[] categories = {"HARM_CATEGORY_HARASSMENT", "HARM_CATEGORY_HATE_SPEECH", "HARM_CATEGORY_SEXUALLY_EXPLICIT", "HARM_CATEGORY_DANGEROUS_CONTENT"};
+            for (String cat : categories) {
+                JsonObject setting = new JsonObject();
+                setting.addProperty("category", cat);
+                setting.addProperty("threshold", "BLOCK_NONE");
+                safetySettings.add(setting);
+            }
+            jsonBody.add("safetySettings", safetySettings);
 
             ModConfig.GeminiModel[] allModels = ModConfig.GeminiModel.values();
             int startIndex = config.geminiModel.ordinal();
@@ -548,37 +736,37 @@ public class NPCTranslatorClient implements ClientModInitializer {
     }
 
     public static void handleRevert(String msgId, String unused) {
-        MinecraftClient client = MinecraftClient.getInstance();
+        Minecraft client = Minecraft.getInstance();
         try {
-            Text originalMessage = ORIGINAL_MESSAGES.get(msgId);
+            Component originalMessage = ORIGINAL_MESSAGES.get(msgId);
             if (originalMessage == null) {
                 // Fallback
                 String base64 = MESSAGE_ID_TO_BASE64.get(msgId);
                 if (base64 != null) {
                     String originalText = new String(Base64.getDecoder().decode(base64), java.nio.charset.StandardCharsets.UTF_8);
-                    originalMessage = Text.literal(originalText);
+                    originalMessage = Component.literal(originalText);
                 } else {
                     return;
                 }
             }
 
-            MutableText translateButton = Text.translatable("npctranslator.button")
+            MutableComponent translateButton = Component.translatable("npctranslator.button")
                     .append(" ")
-                    .styled(style -> style.withColor(Formatting.AQUA)
+                    .withStyle(style -> style.withColor(ChatFormatting.AQUA)
                             .withClickEvent(new ClickEvent.RunCommand("/translate_npc " + msgId))
-                            .withHoverEvent(new HoverEvent.ShowText(Text.translatable("npctranslator.hover"))));
+                            .withHoverEvent(new HoverEvent.ShowText(Component.translatable("npctranslator.hover"))));
 
-            Text finalMessage = originalMessage;
-            MutableText fullOriginal = Text.empty().append(translateButton).append(finalMessage.copy());
+            Component finalMessage = originalMessage;
+            MutableComponent fullOriginal = Component.empty().append(translateButton).append(finalMessage.copy());
             String searchMarker = "revert_npc " + msgId;
             client.execute(() -> replaceMessageInChat(client, searchMarker, fullOriginal));
 
         } catch (Exception e) {}
     }
 
-    public static void handleItemTooltip(ItemStack stack, List<Text> tooltip) {
+    public static void handleItemTooltip(ItemStack stack, List<Component> tooltip) {
         if (!config.enabled) return;
-        MinecraftClient client = MinecraftClient.getInstance();
+        Minecraft client = Minecraft.getInstance();
         if (client == null) return;
         
         String itemKey = stack.getItem().toString() + "_" + (stack.getComponents() != null ? stack.getComponents().hashCode() : 0);
@@ -588,19 +776,22 @@ public class NPCTranslatorClient implements ClientModInitializer {
         handleTooltipStateAndRender(tooltip, cacheKey);
     }
 
-    public static void handleGeneralTooltip(List<Text> tooltip) {
+    public static void handleGeneralTooltip(List<Component> tooltip) {
         if (!config.enabled) return;
         if (tooltip.isEmpty()) return;
 
-        // Skip if already handled by ItemStack tooltip mapping
-        for (Text t : tooltip) {
+        // Skip if already handled by ItemStack tooltip mapping (tracked in memory)
+        if (PROCESSED_TOOLTIPS.containsKey(tooltip)) return;
+
+        for (Component t : tooltip) {
             String str = t.getString();
-            if (str.contains("✅") || str.contains("evirmek") || str.contains("Google ile") || str.contains("Yapay zeka") || str.contains("Translated by")) return;
+            if (str.contains("✅") || str.contains("evirmek") || str.contains("Google ile") || str.contains("Yapay zeka")
+                || str.contains("Translated by") || str.contains("to translate with") || str.contains("Press [")) return;
         }
 
         // Create a cache key from the tooltip content itself since we don't have an ItemStack
         StringBuilder content = new StringBuilder();
-        for (Text t : tooltip) content.append(t.getString());
+        for (Component t : tooltip) content.append(t.getString());
         if (content.length() < 10) return; // Too short to be an item lore usually
 
         String lang = config.useGameLanguage ? clientLanguage() : config.targetLanguage.code;
@@ -609,7 +800,7 @@ public class NPCTranslatorClient implements ClientModInitializer {
         handleTooltipStateAndRender(tooltip, cacheKey);
     }
 
-    private static void handleTooltipStateAndRender(List<Text> tooltip, String cacheKey) {
+    private static void handleTooltipStateAndRender(List<Component> tooltip, String cacheKey) {
         ModConfig.TranslationProvider currentProvider = TRANSLATED_PROVIDER_CACHE.get(cacheKey);
         boolean isAlreadyTranslated = ACTIVE_TRANSLATED_ITEMS.contains(cacheKey) && ITEM_CACHE.containsKey(cacheKey);
 
@@ -660,22 +851,33 @@ public class NPCTranslatorClient implements ClientModInitializer {
                            && ITEM_CACHE.get(cacheKey).stream().anyMatch(t -> t.getString().startsWith("⚠"));
         
         if (isTranslated) {
-            List<Text> translated = ITEM_CACHE.get(cacheKey);
+            List<Component> translated = ITEM_CACHE.get(cacheKey);
             ModConfig.TranslationProvider provider = TRANSLATED_PROVIDER_CACHE.getOrDefault(cacheKey, ModConfig.TranslationProvider.GOOGLE);
             try {
                 tooltip.clear();
                 tooltip.addAll(translated);
-                tooltip.add(Text.empty());
-                tooltip.add(Text.translatable(
+                tooltip.add(Component.empty());
+                tooltip.add(Component.translatable(
                     provider == ModConfig.TranslationProvider.GOOGLE ? "npctranslator.tooltip.translated.google" :
                     provider == ModConfig.TranslationProvider.GEMINI ? "npctranslator.tooltip.translated.gemini" :
                     "npctranslator.tooltip.translated.groq"
-                ).formatted(Formatting.GRAY, Formatting.ITALIC));
+                ).withStyle(ChatFormatting.GRAY, ChatFormatting.ITALIC));
+            } catch (Exception ignored) {}
+        } else if (PENDING_ITEMS.contains(cacheKey)) {
+            try {
+                // Animated spinner: cycles through frames every ~10 ticks
+                String[] spinnerFrames = {"⏳", "⌛"};
+                String[] dotFrames = {"", ".", "..", "..."};
+                String spinner = spinnerFrames[(int)((animationTick / 10) % spinnerFrames.length)];
+                String dots = dotFrames[(int)((animationTick / 8) % dotFrames.length)];
+                tooltip.add(Component.empty());
+                tooltip.add(Component.literal(spinner + " Çevriliyor" + dots)
+                    .withStyle(ChatFormatting.YELLOW, ChatFormatting.ITALIC));
             } catch (Exception ignored) {}
         } else if (hasError) {
             // Show the error message stored in cache
             try {
-                tooltip.add(Text.empty());
+                tooltip.add(Component.empty());
                 ITEM_CACHE.get(cacheKey).forEach(tooltip::add);
             } catch (Exception ignored) {}
         } else if (config.autoTranslateItems && !REVERTED_ITEMS.contains(cacheKey) && !ACTIVE_TRANSLATED_ITEMS.contains(cacheKey)) {
@@ -685,75 +887,121 @@ public class NPCTranslatorClient implements ClientModInitializer {
             triggerTranslation(tooltip, cacheKey, ModConfig.TranslationProvider.GOOGLE);
         }
 
-        renderShortcutsFooter(tooltip, isTranslated, cacheKey);
+        renderShortcutsFooter(tooltip, isTranslated, PENDING_ITEMS.contains(cacheKey), cacheKey);
     }
 
-    private static void renderShortcutsFooter(List<Text> tooltip, boolean isTranslated, String cacheKey) {
+    private static boolean isPendingTooltip(String cacheKey) {
+        return PENDING_ITEMS.contains(cacheKey);
+    }
+
+    private static void renderShortcutsFooter(List<Component> tooltip, boolean isTranslated, boolean isPending, String cacheKey) {
         try {
-            if (!isTranslated) tooltip.add(Text.empty());
-            
             ModConfig.TranslationProvider currentProvider = TRANSLATED_PROVIDER_CACHE.get(cacheKey);
-            
-            if (config.enableGoogleItem && currentProvider != ModConfig.TranslationProvider.GOOGLE) {
-                String k = getKeyName(keyTranslateGoogle, "G");
-                tooltip.add(Text.translatable("npctranslator.tooltip.translate.google", k).formatted(Formatting.DARK_GRAY));
-            }
-            if (config.enableGeminiItem && currentProvider != ModConfig.TranslationProvider.GEMINI) {
-                String k = getKeyName(keyTranslateGemini, "X");
-                tooltip.add(Text.translatable("npctranslator.tooltip.translate.gemini", k).formatted(Formatting.DARK_GRAY));
-            }
-            if (config.enableGroqItem && currentProvider != ModConfig.TranslationProvider.GROQ) {
-                String k = getKeyName(keyTranslateGroq, "C");
-                tooltip.add(Text.translatable("npctranslator.tooltip.translate.groq", k).formatted(Formatting.DARK_GRAY));
-            }
-            
+
             if (isTranslated) {
+                // Only show revert button when already translated
+                tooltip.add(Component.empty());
                 String k = getKeyName(keyRevertTranslation, "V");
-                tooltip.add(Text.translatable("npctranslator.tooltip.revert", k).formatted(Formatting.DARK_GRAY));
+                tooltip.add(Component.translatable("npctranslator.tooltip.revert", k).withStyle(ChatFormatting.DARK_GRAY));
+            } else if (!isPending) {
+                // Show all translate buttons only when not translated and not loading
+                tooltip.add(Component.empty());
+                if (config.enableGoogleItem) {
+                    String k = getKeyName(keyTranslateGoogle, "G");
+                    tooltip.add(Component.translatable("npctranslator.tooltip.translate.google", k).withStyle(ChatFormatting.DARK_GRAY));
+                }
+                if (config.enableGeminiItem) {
+                    String k = getKeyName(keyTranslateGemini, "X");
+                    tooltip.add(Component.translatable("npctranslator.tooltip.translate.gemini", k).withStyle(ChatFormatting.DARK_GRAY));
+                }
+                if (config.enableGroqItem) {
+                    String k = getKeyName(keyTranslateGroq, "C");
+                    tooltip.add(Component.translatable("npctranslator.tooltip.translate.groq", k).withStyle(ChatFormatting.DARK_GRAY));
+                }
             }
         } catch (Exception ignored) {}
     }
 
-    private static String getKeyName(KeyBinding bind, String def) {
-        String n = bind.getBoundKeyLocalizedText().getString().toUpperCase();
-        if (n.isEmpty() || n.equals("-")) return def;
-        return n;
+    private static String getKeyName(KeyMapping bind, String def) {
+        try {
+            String n = bind.getTranslatedKeyMessage().getString().toUpperCase();
+            if (n.isEmpty() || n.equals("-") || n.equals("NONE")) return def;
+            return n;
+        } catch (Exception e) { return def; }
     }
 
-    private static void triggerTranslation(List<Text> tooltip, String cacheKey, ModConfig.TranslationProvider provider) {
+    private static void triggerTranslation(List<Component> tooltip, String cacheKey, ModConfig.TranslationProvider provider) {
         if (PENDING_ITEMS.contains(cacheKey)) return;
         if (provider == ModConfig.TranslationProvider.GROQ && (config.groqApiKey == null || config.groqApiKey.isEmpty())) {
             ACTIVE_TRANSLATED_ITEMS.remove(cacheKey);
-            ITEM_CACHE.put(cacheKey + "_API_ERROR", List.of(Text.literal("⚠ API KONTROL EDİN").formatted(Formatting.RED, Formatting.BOLD)));
-            ITEM_CACHE.put(cacheKey, List.of(Text.literal("⚠ Groq API Anahtarı Girilmemiş!").formatted(Formatting.RED, Formatting.BOLD)));
+            ITEM_CACHE.put(cacheKey, List.of(Component.literal("⚠ Groq API Anahtarı Girilmemiş!").withStyle(ChatFormatting.RED, ChatFormatting.BOLD)));
             return;
         }
         if (provider == ModConfig.TranslationProvider.GEMINI && (config.geminiApiKey == null || config.geminiApiKey.isEmpty())) {
             ACTIVE_TRANSLATED_ITEMS.remove(cacheKey);
-            ITEM_CACHE.put(cacheKey, List.of(Text.literal("⚠ Gemini API Anahtarı Girilmemiş!").formatted(Formatting.RED, Formatting.BOLD)));
+            ITEM_CACHE.put(cacheKey, List.of(Component.literal("⚠ Gemini API Anahtarı Girilmemiş!").withStyle(ChatFormatting.RED, ChatFormatting.BOLD)));
             return;
         }
 
-        PENDING_ITEMS.add(cacheKey);
         
-        StringBuilder fullTooltip = new StringBuilder();
-        for (Text line : tooltip) {
-            fullTooltip.append(toFormattedString(line)).append("\n");
-        }
+        PENDING_ITEMS.add(cacheKey);
 
         String targetLang = config.useGameLanguage ? clientLanguage() : config.targetLanguage.englishName;
         String langCode = config.useGameLanguage ? (clientLanguage().contains("_") ? clientLanguage().split("_")[0] : "tr") : config.targetLanguage.code;
 
+        // Create a snapshot of the tooltip on the main thread to avoid ConcurrentModificationException
+        // since the main thread might modify the tooltip (e.g. adding shortcuts) while we iterate async.
+        List<Component> tooltipSnapshot = new ArrayList<>(tooltip);
+
         CompletableFuture.runAsync(() -> {
             try {
-                String translatedContent = getTranslatedText(fullTooltip.toString(), langCode, targetLang, true, provider);
-                String[] lines = translatedContent.split("\n");
-                List<Text> translatedTooltip = new ArrayList<>();
-                for (String line : lines) {
-                    if (!line.trim().isEmpty()) {
-                        translatedTooltip.add(parseColorCodes(line.trim()));
+                List<String> missingLines = new ArrayList<>();
+                List<String> allLinesOriginal = new ArrayList<>();
+                String providerName = provider.name(); // e.g. "GOOGLE", "GEMINI", "GROQ"
+                for (Component line : tooltipSnapshot) {
+                    String parsed = toFormattedString(line).trim();
+                    if (!parsed.isEmpty()) {
+                        allLinesOriginal.add(parsed);
+                        if (!TranslationDictionary.has(parsed, providerName)) {
+                            missingLines.add(parsed);
+                        }
                     }
                 }
+
+                if (!missingLines.isEmpty()) {
+                    StringBuilder batch = new StringBuilder();
+                    for (int i = 0; i < missingLines.size(); i++) {
+                        batch.append(i).append("|").append(missingLines.get(i)).append("\n");
+                    }
+                    
+                    String translatedContent = getTranslatedText(batch.toString(), langCode, targetLang, true, provider);
+                    String[] transLines = translatedContent.split("\n");
+                    
+                    for (String tLine : transLines) {
+                        int pipeIdx = tLine.indexOf('|');
+                        if (pipeIdx != -1) {
+                            try {
+                                int id = Integer.parseInt(tLine.substring(0, pipeIdx).trim());
+                                if (id >= 0 && id < missingLines.size()) {
+                                    String translatedText = tLine.substring(pipeIdx + 1).trim();
+                                    TranslationDictionary.put(missingLines.get(id), translatedText, providerName);
+                                }
+                            } catch (Exception e) {}
+                        }
+                    }
+                    TranslationDictionary.save();
+                }
+
+                List<Component> translatedTooltip = new ArrayList<>();
+                for (String orig : allLinesOriginal) {
+                    String tr = TranslationDictionary.get(orig, providerName);
+                    if (tr != null && !tr.isEmpty()) {
+                        translatedTooltip.add(parseColorCodes(tr));
+                    } else {
+                        translatedTooltip.add(parseColorCodes(orig));
+                    }
+                }
+
                 if (!translatedTooltip.isEmpty()) {
                     ITEM_CACHE.put(cacheKey, translatedTooltip);
                 }
@@ -764,7 +1012,7 @@ public class NPCTranslatorClient implements ClientModInitializer {
                 String errorMsg = e.getMessage() != null && e.getMessage().contains("401") ? "⚠ " + providerName + " API Anahtarı Hatalı!" :
                                   isRateLimit ? "⚠ " + providerName + " API Limiti Aşıldı (Tüm modeller)!" :
                                   "⚠ " + providerName + " API Hatası - KONTROL EDİN";
-                ITEM_CACHE.put(cacheKey, List.of(Text.literal(errorMsg).formatted(Formatting.RED, Formatting.BOLD)));
+                ITEM_CACHE.put(cacheKey, List.of(Component.literal(errorMsg).withStyle(ChatFormatting.RED, ChatFormatting.BOLD)));
                 ACTIVE_TRANSLATED_ITEMS.remove(cacheKey);
             } finally {
                 PENDING_ITEMS.remove(cacheKey);
@@ -772,55 +1020,57 @@ public class NPCTranslatorClient implements ClientModInitializer {
         });
     }
 
-    private static String toFormattedString(Text text) {
+    private static String toFormattedString(Component text) {
         StringBuilder sb = new StringBuilder();
         text.visit((style, string) -> {
-            TextColor color = style.getColor();
+            net.minecraft.network.chat.TextColor color = style.getColor();
             if (color != null) {
-                Formatting format = Formatting.byName(color.getName());
-                if (format != null) {
-                    sb.append("§").append(format.getCode());
+                // Use our reverse map: rgb -> §code
+                int rgb = color.getValue() & 0xFFFFFF;
+                Character code = COLOR_TO_CODE.get(rgb);
+                if (code != null) {
+                    sb.append('\u00A7').append(code);
                 }
             }
-            if (style.isBold()) sb.append("§l");
-            if (style.isItalic()) sb.append("§o");
-            if (style.isUnderlined()) sb.append("§n");
-            if (style.isStrikethrough()) sb.append("§m");
-            if (style.isObfuscated()) sb.append("§k");
+            if (style.isBold()) sb.append("\u00A7l");
+            if (style.isItalic()) sb.append("\u00A7o");
+            if (style.isUnderlined()) sb.append("\u00A7n");
+            if (style.isStrikethrough()) sb.append("\u00A7m");
+            if (style.isObfuscated()) sb.append("\u00A7k");
             sb.append(string);
             return Optional.empty();
         }, Style.EMPTY);
         return sb.toString();
     }
 
-    private static Text parseColorCodes(String text) {
-        MutableText root = Text.empty();
-        String[] parts = text.split("§");
-        if (parts.length == 0) return Text.literal(text);
-        root.append(Text.literal(parts[0]));
-        List<Formatting> activeFormats = new ArrayList<>();
+    private static Component parseColorCodes(String text) {
+        MutableComponent root = Component.empty();
+        String[] parts = text.split("\u00A7");
+        if (parts.length == 0) return Component.literal(text);
+        root.append(Component.literal(parts[0]));
+        List<ChatFormatting> activeFormats = new ArrayList<>();
         for (int i = 1; i < parts.length; i++) {
             String part = parts[i];
             if (part.isEmpty()) continue;
-            char code = part.charAt(0);
-            Formatting format = Formatting.byCode(code);
+            char code = Character.toLowerCase(part.charAt(0));
+            ChatFormatting format = CODE_TO_FORMAT.get(code);
             if (format != null) {
-                if (format.isColor() || format == Formatting.RESET) activeFormats.clear();
-                if (format != Formatting.RESET) activeFormats.add(format);
+                if (COLOR_FORMATS.contains(format) || format == ChatFormatting.RESET) activeFormats.clear();
+                if (format != ChatFormatting.RESET) activeFormats.add(format);
                 if (part.length() > 1) {
-                    MutableText t = Text.literal(part.substring(1));
-                    for (Formatting f : activeFormats) t.formatted(f);
+                    MutableComponent t = Component.literal(part.substring(1));
+                    for (ChatFormatting f : activeFormats) t.withStyle(f);
                     root.append(t);
                 }
             } else {
-                root.append(Text.literal("§" + part));
+                root.append(Component.literal("\u00A7" + part));
             }
         }
         return root;
     }
     
     private static String clientLanguage() {
-        MinecraftClient client = MinecraftClient.getInstance();
-        return (client != null && client.options != null) ? client.options.language : "en_us";
+        Minecraft client = Minecraft.getInstance();
+        return (client != null && client.options != null) ? client.options.languageCode : "en_us";
     }
 }

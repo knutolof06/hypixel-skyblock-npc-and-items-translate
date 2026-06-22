@@ -1,0 +1,1 @@
+package com.npctranslator; import net.minecraft.client.KeyMapping; public class Test2 { public static void main(String[] args) { Object misc = KeyMapping.Category.MISC; System.out.println(misc.getClass().getName()); } }
