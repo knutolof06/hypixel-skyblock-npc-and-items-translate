@@ -64,8 +64,8 @@ Sie haben die volle Kontrolle über das Übersetzungs-Backend über das Konfigur
 ## 📦 Kompatibilität & Anforderungen
 
 - **Loader:** Fabric
-- **Minecraft:** 1.21.1+
-- **Erforderlich:** [Fabric API](https://modrinth.com/mod/fabric-api), [Cloth Config API](https://modrinth.com/mod/cloth-config), [ModMenu](https://modrinth.com/mod/modmenu)
+- **Minecraft:** 1.21.11, 1.21.4 (26.1, 26.2)
+- **Erforderlich:** [Fabric API](https://modrinth.com/mod/fabric-api), [YetAnotherConfigLib (YACL)](https://modrinth.com/mod/yacl), [ModMenu](https://modrinth.com/mod/modmenu)
 - **Seite:** NUR Client-Seite (Client-side) — sicher auf jedem Multiplayer-Server, einschließlich Hypixel, zu verwenden!
 
 ---

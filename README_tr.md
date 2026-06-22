@@ -64,8 +64,8 @@ Minecraft formatlarını bozan basit çevirmenlerin aksine, bu mod `§` renk kod
 ## 📦 Uyumluluk & Gereksinimler
 
 - **Yükleyici:** Fabric
-- **Minecraft:** 1.21.1+
-- **Gerekli Modlar:** [Fabric API](https://modrinth.com/mod/fabric-api), [Cloth Config API](https://modrinth.com/mod/cloth-config), [ModMenu](https://modrinth.com/mod/modmenu)
+- **Minecraft:** 1.21.11, 1.21.4 (26.1, 26.2)
+- **Gerekli Modlar:** [Fabric API](https://modrinth.com/mod/fabric-api), [YetAnotherConfigLib (YACL)](https://modrinth.com/mod/yacl), [ModMenu](https://modrinth.com/mod/modmenu)
 - **Taraf:** YALNIZCA İstemci Taraflı (Client-side) — Hypixel dahil hiçbir çok oyunculu sunucuda ban riski taşımaz!
 
 ---

@@ -64,8 +64,8 @@
 ## 📦 兼容性与要求
 
 - **加载器：** Fabric
-- **Minecraft:** 1.21.1+
-- **前置模组：** [Fabric API](https://modrinth.com/mod/fabric-api), [Cloth Config API](https://modrinth.com/mod/cloth-config), [ModMenu](https://modrinth.com/mod/modmenu)
+- **Minecraft:** 1.21.11, 1.21.4 (26.1, 26.2)
+- **前置模组：** [Fabric API](https://modrinth.com/mod/fabric-api), [YetAnotherConfigLib (YACL)](https://modrinth.com/mod/yacl), [ModMenu](https://modrinth.com/mod/modmenu)
 - **端：** 仅限客户端 (Client-side ONLY) — 可以在包括 Hypixel 在内的任何多人服务器上安全使用！
 
 ---

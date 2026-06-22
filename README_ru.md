@@ -64,8 +64,8 @@
 ## 📦 Совместимость и требования
 
 - **Загрузчик:** Fabric
-- **Minecraft:** 1.21.1+
-- **Требуется:** [Fabric API](https://modrinth.com/mod/fabric-api), [Cloth Config API](https://modrinth.com/mod/cloth-config), [ModMenu](https://modrinth.com/mod/modmenu)
+- **Minecraft:** 1.21.11, 1.21.4 (26.1, 26.2)
+- **Требуется:** [Fabric API](https://modrinth.com/mod/fabric-api), [YetAnotherConfigLib (YACL)](https://modrinth.com/mod/yacl), [ModMenu](https://modrinth.com/mod/modmenu)
 - **Сторона:** ТОЛЬКО клиент (Client-side) — безопасно использовать на любом многопользовательском сервере, включая Hypixel!
 
 ---
