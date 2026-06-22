@@ -53,8 +53,8 @@ public class ModMenuIntegration implements ModMenuApi {
                                         .controller(opt -> EnumControllerBuilder.create(opt).enumClass(ModConfig.TranslationLanguage.class))
                                         .build())
                                 .option(ButtonOption.createBuilder()
-                                        .name(Component.literal("Tuş Atamalarını Düzenle (Keybinds)"))
-                                        .description(OptionDescription.of(Component.literal("Minecraft'ın orijinal Tuş Atamaları menüsünü açar.")))
+                                        .name(Component.translatable("npctranslator.config.keybinds.name"))
+                                        .description(OptionDescription.of(Component.translatable("npctranslator.config.keybinds.desc")))
                                         .action((screen, button) -> {
                                             com.npctranslator.NPCTranslatorClient.setScreen(Minecraft.getInstance(), new KeyBindsScreen(screen, Minecraft.getInstance().options));
                                         })

@@ -72,5 +72,10 @@
   "npctranslator.api_help.groq": "Groq API Al",
   "npctranslator.api_help.gemini": "Gemini API Al",
   "npctranslator.api_help.desc1": "Yapay zeka ile çeviri yapmak için ücretsiz API anahtarı almanız gerekir.",
-  "npctranslator.api_help.desc2": "Aşağıdaki butonlara tıklayarak sitelere gidebilirsiniz."
+  "npctranslator.api_help.desc2": "Aşağıdaki butonlara tıklayarak sitelere gidebilirsiniz.",
+  "npctranslator.config.keybinds.name": "Tuş Atamalarını Düzenle (Keybinds)",
+  "npctranslator.config.keybinds.desc": "Minecraft'ın orijinal Tuş Atamaları menüsünü açar.",
+  "npctranslator.error.api_key_invalid": "⚠ %s API Anahtarı Hatalı!",
+  "npctranslator.error.api_limit_exceeded": "⚠ %s API Limiti Aşıldı (Tüm modeller)!",
+  "npctranslator.error.api_general": "⚠ %s API Hatası - KONTROL EDİN"
 }

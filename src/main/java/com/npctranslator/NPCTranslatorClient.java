@@ -761,10 +761,10 @@ public class NPCTranslatorClient implements ClientModInitializer {
                 e.printStackTrace();
                 String providerName = provider == ModConfig.TranslationProvider.GEMINI ? "Gemini" : provider == ModConfig.TranslationProvider.GROQ ? "Groq" : "Google";
                 boolean isRateLimit = e.getMessage() != null && e.getMessage().contains("429");
-                String errorMsg = e.getMessage() != null && e.getMessage().contains("401") ? "⚠ " + providerName + " API Anahtarı Hatalı!" :
-                                  isRateLimit ? "⚠ " + providerName + " API Limiti Aşıldı (Tüm modeller)!" :
-                                  "⚠ " + providerName + " API Hatası - KONTROL EDİN";
-                ITEM_CACHE.put(cacheKey, List.of(Text.literal(errorMsg).formatted(Formatting.RED, Formatting.BOLD)));
+                String errorMsgKey = e.getMessage() != null && e.getMessage().contains("401") ? "npctranslator.error.api_key_invalid" :
+                                  isRateLimit ? "npctranslator.error.api_limit_exceeded" :
+                                  "npctranslator.error.api_general";
+                ITEM_CACHE.put(cacheKey, List.of(Text.translatable(errorMsgKey, providerName).formatted(Formatting.RED, Formatting.BOLD)));
                 ACTIVE_TRANSLATED_ITEMS.remove(cacheKey);
             } finally {
                 PENDING_ITEMS.remove(cacheKey);

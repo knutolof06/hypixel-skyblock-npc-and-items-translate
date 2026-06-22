@@ -73,5 +73,10 @@
   "npctranslator.api_help.groq": "Get Groq API",
   "npctranslator.api_help.gemini": "Get Gemini API",
   "npctranslator.api_help.desc1": "You need a free API key to use AI translation.",
-  "npctranslator.api_help.desc2": "Click the buttons below to open the API websites."
+  "npctranslator.api_help.desc2": "Click the buttons below to open the API websites.",
+  "npctranslator.config.keybinds.name": "Edit Keybinds",
+  "npctranslator.config.keybinds.desc": "Opens the original Minecraft Keybinds menu.",
+  "npctranslator.error.api_key_invalid": "⚠ Invalid %s API Key!",
+  "npctranslator.error.api_limit_exceeded": "⚠ %s API Rate Limit Exceeded (All models)!",
+  "npctranslator.error.api_general": "⚠ %s API Error - PLEASE CHECK"
 }
