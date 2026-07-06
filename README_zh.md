@@ -27,6 +27,8 @@
 - **`G`** — 通过 **Google 翻译** 进行翻译（免费，无限制）
 - **`X`** — 通过 **Gemini API** 进行翻译（智能，快速）
 - **`C`** — 通过 **Groq API** 进行翻译（超快大语言模型）
+- **`[未分配]`** — 通过 **Mistral API** 进行翻译 *(您必须在“控制”中分配按键)*
+- **`[未分配]`** — 通过 **OpenRouter API** 进行翻译 *(您必须在“控制”中分配按键)*
 - **`V`** — 恢复翻译为原始内容
 
 *注意：连续按两次相同的翻译键相当于切换开关，可恢复翻译。*
@@ -49,6 +51,8 @@
 |--------|-------------|
 | 🤖 **Gemini API** | 使用 Google 最新的 Gemini 模型（如 Gemini 2.5 Flash, Gemini Flash-Lite）。出色的上下文理解和格式保留能力。需要从 [Google AI Studio](https://aistudio.google.com) 获取免费的 API 密钥。 |
 | ⚡ **Groq API** | 使用超快的 LLM（如 Llama-3.3-70B, Qwen3）在上下文中理解 Minecraft 术语。需要从 [console.groq.com](https://console.groq.com) 获取免费的 API 密钥。 |
+| 🌪️ **Mistral API** | 使用 Mistral 强大的模型（如 Mistral Large）。可靠且高质量。需要从 [console.mistral.ai](https://console.mistral.ai) 获取免费的 API 密钥。 |
+| 🌍 **OpenRouter API** | 通过统一的 API 访问各种 AI 模型（Claude, Llama, Qwen 等）。需要从 [openrouter.ai](https://openrouter.ai) 获取免费的 API 密钥。 |
 | 🌐 **Google 翻译** | 不想使用 API 密钥？享受无限制、快速且完全免费的翻译，无需任何设置。 |
 
 ---

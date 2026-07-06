@@ -27,6 +27,8 @@ Fahren Sie mit der Maus über ein beliebiges Item und drücken Sie die anpassbar
 - **`G`** — Übersetzen via **Google Translate** (Kostenlos, Unbegrenzt)
 - **`X`** — Übersetzen via **Gemini API** (Intelligent, Schnell)
 - **`C`** — Übersetzen via **Groq API** (Ultraschnelles LLM)
+- **`[Nicht zugewiesen]`** — Übersetzen via **Mistral API** *(Sie müssen in der Steuerung eine Taste zuweisen)*
+- **`[Nicht zugewiesen]`** — Übersetzen via **OpenRouter API** *(Sie müssen in der Steuerung eine Taste zuweisen)*
 - **`V`** — Übersetzung rückgängig machen
 
 *Hinweis: Wenn Sie dieselbe Übersetzungstaste zweimal drücken, fungiert sie als Schalter und setzt die Übersetzung zurück.*
@@ -49,6 +51,8 @@ Sie haben die volle Kontrolle über das Übersetzungs-Backend über das Konfigur
 |--------|-------------|
 | 🤖 **Gemini API** | Verwendet die neuesten Gemini-Modelle von Google (z. B. Gemini 2.5 Flash, Gemini Flash-Lite). Hervorragendes kontextuelles Verständnis und Beibehaltung der Formatierung. Erfordert einen kostenlosen API-Schlüssel von [Google AI Studio](https://aistudio.google.com). |
 | ⚡ **Groq API** | Verwendet ultraschnelle LLMs (wie Llama-3.3-70B, Qwen3), um Minecraft-Begriffe im Kontext zu verstehen. Erfordert einen kostenlosen API-Schlüssel von [console.groq.com](https://console.groq.com). |
+| 🌪️ **Mistral API** | Verwendet leistungsstarke Mistral-Modelle (z.B. Mistral Large). Zuverlässig und hochwertig. Erfordert einen kostenlosen API-Schlüssel von [console.mistral.ai](https://console.mistral.ai). |
+| 🌍 **OpenRouter API** | Zugriff auf eine Vielzahl von KI-Modellen (Claude, Llama, Qwen usw.) über eine einzige API. Erfordert einen kostenlosen API-Schlüssel von [openrouter.ai](https://openrouter.ai). |
 | 🌐 **Google Translate** | Möchten Sie keinen API-Schlüssel verwenden? Genießen Sie unbegrenzte, schnelle und völlig kostenlose Übersetzungen ohne Einrichtung. |
 
 ---
