@@ -27,6 +27,8 @@ Herhangi bir eşyanın üzerine gelin ve onu tercih ettiğiniz motorla çevirmek
 - **`G`** — **Google Translate** ile Çevir (Ücretsiz, Sınırsız)
 - **`X`** — **Gemini API** ile Çevir (Akıllı, Hızlı)
 - **`C`** — **Groq API** ile Çevir (Aşırı hızlı yapay zeka)
+- **`(Atanmamış)`** — **Mistral API** ile Çevir (Yüksek kaliteli)
+- **`(Atanmamış)`** — **OpenRouter API** ile Çevir (Çeşitli modeller)
 - **`V`** — Çeviriyi geri al (Orijinale dön)
 
 *Not: Çeviri yaptığınız tuşa tekrar basmak, çeviriyi kapatır ve orijinaline döndürür.*
@@ -49,6 +51,8 @@ Minecraft formatlarını bozan basit çevirmenlerin aksine, bu mod `§` renk kod
 |--------|-------------|
 | 🤖 **Gemini API** | Google'ın en yeni Gemini modellerini (örn. Gemini 2.5 Flash, Flash-Lite) kullanır. Mükemmel bağlamsal anlama ve format korumasına sahiptir. [Google AI Studio](https://aistudio.google.com) üzerinden alınacak ücretsiz API anahtarı gerektirir. |
 | ⚡ **Groq API** | Minecraft terimlerini bağlam içinde anlamak için aşırı hızlı dil modellerini (Llama-3.3-70B, Qwen3) kullanır. [console.groq.com](https://console.groq.com) üzerinden alınacak ücretsiz API anahtarı gerektirir. |
+| 🌪️ **Mistral API** | Mistral'in yüksek performanslı modellerini (Mistral Large, vb.) kullanır. Yüksek kaliteli çeviriler sunar. [console.mistral.ai](https://console.mistral.ai) üzerinden alınacak ücretsiz API anahtarı gerektirir. |
+| 🌍 **OpenRouter API** | Claude, Llama, Qwen gibi pek çok farklı modele tek bir API ile erişmenizi sağlar. [openrouter.ai](https://openrouter.ai) üzerinden alınacak ücretsiz API anahtarı gerektirir. |
 | 🌐 **Google Translate** | API anahtarıyla uğraşmak istemiyor musunuz? Hiçbir ayar gerektirmeden tamamen ücretsiz, sınırsız ve hızlı çevirinin tadını çıkarın. |
 
 ---

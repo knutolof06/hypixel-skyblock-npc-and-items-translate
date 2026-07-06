@@ -27,6 +27,8 @@ Hover over any item and press the customizable hotkeys to translate the item lor
 - **`G`** — Translate via **Google Translate** (Free, Unlimited)
 - **`X`** — Translate via **Gemini API** (Smart, Fast)
 - **`C`** — Translate via **Groq API** (Ultra-fast LLM)
+- **`(Unbound)`** — Translate via **Mistral API** (High quality)
+- **`(Unbound)`** — Translate via **OpenRouter API** (Unified models)
 - **`V`** — Revert translation to original
 
 *Note: Pressing the same translation key twice acts as a toggle and reverts the translation.*
@@ -49,6 +51,8 @@ You have full control over the translation backend through the configuration men
 |--------|-------------|
 | 🤖 **Gemini API** | Uses Google's latest Gemini models (e.g. Gemini 2.5 Flash, Gemini Flash-Lite). Excellent contextual understanding and formatting retention. Requires a free API key from [Google AI Studio](https://aistudio.google.com). |
 | ⚡ **Groq API** | Uses ultra-fast LLMs (like Llama-3.3-70B, Qwen3) to contextually understand Minecraft terms. Requires a free API key from [console.groq.com](https://console.groq.com). |
+| 🌪️ **Mistral API** | Uses Mistral's powerful models (e.g., Mistral Large, Ministral). Reliable and high quality. Requires a free API key from [console.mistral.ai](https://console.mistral.ai). |
+| 🌍 **OpenRouter API** | Access a massive variety of LLMs (Claude, Llama, Qwen, etc.) through a single unified API. Requires a free API key from [openrouter.ai](https://openrouter.ai). |
 | 🌐 **Google Translate** | Don't want an API key? Enjoy unlimited, fast, and completely free translations with no setup required. |
 
 ---
