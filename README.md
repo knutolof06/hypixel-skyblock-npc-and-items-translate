@@ -27,8 +27,8 @@ Hover over any item and press the customizable hotkeys to translate the item lor
 - **`G`** — Translate via **Google Translate** (Free, Unlimited)
 - **`X`** — Translate via **Gemini API** (Smart, Fast)
 - **`C`** — Translate via **Groq API** (Ultra-fast LLM)
-- **`(Unbound)`** — Translate via **Mistral API** (High quality)
-- **`(Unbound)`** — Translate via **OpenRouter API** (Unified models)
+- **`[Unassigned]`** — Translate via **Mistral API** *(You must assign a key in Controls)*
+- **`[Unassigned]`** — Translate via **OpenRouter API** *(You must assign a key in Controls)*
 - **`V`** — Revert translation to original
 
 *Note: Pressing the same translation key twice acts as a toggle and reverts the translation.*

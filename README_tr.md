@@ -27,8 +27,8 @@ Herhangi bir eşyanın üzerine gelin ve onu tercih ettiğiniz motorla çevirmek
 - **`G`** — **Google Translate** ile Çevir (Ücretsiz, Sınırsız)
 - **`X`** — **Gemini API** ile Çevir (Akıllı, Hızlı)
 - **`C`** — **Groq API** ile Çevir (Aşırı hızlı yapay zeka)
-- **`(Atanmamış)`** — **Mistral API** ile Çevir (Yüksek kaliteli)
-- **`(Atanmamış)`** — **OpenRouter API** ile Çevir (Çeşitli modeller)
+- **`[Tuş Atanmamış]`** — **Mistral API** ile Çevir *(Ayarlar > Kontroller kısmından tuş atamanız gerekir)*
+- **`[Tuş Atanmamış]`** — **OpenRouter API** ile Çevir *(Ayarlar > Kontroller kısmından tuş atamanız gerekir)*
 - **`V`** — Çeviriyi geri al (Orijinale dön)
 
 *Not: Çeviri yaptığınız tuşa tekrar basmak, çeviriyi kapatır ve orijinaline döndürür.*
