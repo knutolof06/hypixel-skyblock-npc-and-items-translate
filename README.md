@@ -1,5 +1,5 @@
 <div align="right">
-  <a href="README.md">🇺🇸 English</a> | <a href="README_tr.md">🇹🇷 Türkçe</a> | <a href="README_ru.md">🇷🇺 Русский</a> | <a href="README_de.md">🇩🇪 Deutsch</a> | <a href="README_zh.md">🇨🇳 中文</a>
+  <a href="https://github.com/knutolof06/hypixel-skyblock-npc-and-items-translate/blob/main/README.md">🇺🇸 English</a> | <a href="https://github.com/knutolof06/hypixel-skyblock-npc-and-items-translate/blob/main/README_tr.md">🇹🇷 Türkçe</a> | <a href="https://github.com/knutolof06/hypixel-skyblock-npc-and-items-translate/blob/main/README_ru.md">🇷🇺 Русский</a> | <a href="https://github.com/knutolof06/hypixel-skyblock-npc-and-items-translate/blob/main/README_de.md">🇩🇪 Deutsch</a> | <a href="https://github.com/knutolof06/hypixel-skyblock-npc-and-items-translate/blob/main/README_zh.md">🇨🇳 中文</a>
 </div>
 
 ---
