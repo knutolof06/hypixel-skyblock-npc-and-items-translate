@@ -80,7 +80,7 @@ foreach ($v in $Versions) {
         $JarFiles = Get-ChildItem "$ScriptDir\build\libs\npc_translator-*.jar" | Where-Object { $_.Name -notmatch "sources" }
         if ($JarFiles.Count -gt 0) {
             $SrcJar = $JarFiles[0].FullName
-            $DestJar = "$OutputDir\npc_translator-1.3.2-$($v.Suffix).jar"
+            $DestJar = "$OutputDir\npc_translator-1.3.3-$($v.Suffix).jar"
             Copy-Item $SrcJar $DestJar -Force
             Write-Host " SUCCESS -> $DestJar" -ForegroundColor Green
             $Success += $v.Name

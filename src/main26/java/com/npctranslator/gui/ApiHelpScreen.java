@@ -21,30 +21,47 @@ public class ApiHelpScreen extends Screen {
     protected void init() {
         super.init();
 
-        int buttonWidth = 200;
+        int buttonWidth = 220;
         int buttonHeight = 20;
         int x = this.width / 2 - buttonWidth / 2;
-        int startY = this.height / 2;
-        int padding = 35;
+        int padding = 26;
 
-        // Groq API Butonu
+        int totalButtons = 5;
+        int totalHeight = totalButtons * buttonHeight + (totalButtons - 1) * (padding - buttonHeight);
+        int startY = this.height / 2 - totalHeight / 2 + 20;
+
+        // Groq API Button
         this.addRenderableWidget(Button.builder(Component.translatable("npctranslator.api_help.groq"), button -> {
             try {
                 java.awt.Desktop.getDesktop().browse(new java.net.URI("https://console.groq.com/keys"));
             } catch (Exception e) {}
         }).bounds(x, startY, buttonWidth, buttonHeight).build());
 
-        // Gemini API Butonu
+        // Gemini API Button
         this.addRenderableWidget(Button.builder(Component.translatable("npctranslator.api_help.gemini"), button -> {
             try {
                 java.awt.Desktop.getDesktop().browse(new java.net.URI("https://aistudio.google.com/app/apikey"));
             } catch (Exception e) {}
         }).bounds(x, startY + padding, buttonWidth, buttonHeight).build());
 
-        // Geri Butonu
-        this.addRenderableWidget(Button.builder(Component.translatable("npctranslator.welcome.button.close"), button -> {
-            com.npctranslator.NPCTranslatorClient.setScreen(this.minecraft, this.parent);
+        // Mistral API Button
+        this.addRenderableWidget(Button.builder(Component.translatable("npctranslator.api_help.mistral"), button -> {
+            try {
+                java.awt.Desktop.getDesktop().browse(new java.net.URI("https://console.mistral.ai/api-keys/"));
+            } catch (Exception e) {}
         }).bounds(x, startY + padding * 2, buttonWidth, buttonHeight).build());
+
+        // OpenRouter API Button
+        this.addRenderableWidget(Button.builder(Component.translatable("npctranslator.api_help.openrouter"), button -> {
+            try {
+                java.awt.Desktop.getDesktop().browse(new java.net.URI("https://openrouter.ai/settings/keys"));
+            } catch (Exception e) {}
+        }).bounds(x, startY + padding * 3, buttonWidth, buttonHeight).build());
+
+        // Back Button
+        this.addRenderableWidget(Button.builder(Component.translatable("npctranslator.api_help.back"), button -> {
+            com.npctranslator.NPCTranslatorClient.setScreen(this.minecraft, parent);
+        }).bounds(x, startY + padding * 3 + 36, buttonWidth, buttonHeight).build());
     }
 
     @Override
@@ -56,10 +73,10 @@ public class ApiHelpScreen extends Screen {
             Component.translatable("npctranslator.api_help.desc2")
         };
         
-        int y = this.height / 2 - 60;
+        int y = this.height / 2 - 65;
         for (Component line : desc) {
             context.centeredText(this.font, line, this.width / 2, y, 0xFFAAAAAA);
-            y += 15;
+            y += 14;
         }
 
         super.extractRenderState(context, mouseX, mouseY, delta);

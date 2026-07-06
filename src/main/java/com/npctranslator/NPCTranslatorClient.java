@@ -42,6 +42,8 @@ public class NPCTranslatorClient implements ClientModInitializer {
     public static KeyBinding keyTranslateGoogle;
     public static KeyBinding keyTranslateGemini;
     public static KeyBinding keyTranslateGroq;
+    public static KeyBinding keyTranslateMistral;
+    public static KeyBinding keyTranslateOpenRouter;
     public static KeyBinding keyRevertTranslation;
     public static KeyBinding menuKey;
 
@@ -59,10 +61,14 @@ public class NPCTranslatorClient implements ClientModInitializer {
     public static boolean googleJustPressed = false;
     public static boolean geminiJustPressed = false;
     public static boolean groqJustPressed = false;
+    public static boolean mistralJustPressed = false;
+    public static boolean openRouterJustPressed = false;
     public static boolean revertJustPressed = false;
     private static boolean lastGoogleState = false;
     private static boolean lastGeminiState = false;
     private static boolean lastGroqState = false;
+    private static boolean lastMistralState = false;
+    private static boolean lastOpenRouterState = false;
     private static boolean lastRevertState = false;
 
     private static boolean isKeyCurrentlyDown(KeyBinding keyBinding) {
@@ -102,6 +108,20 @@ public class NPCTranslatorClient implements ClientModInitializer {
                 "key.npctranslator.translate.groq",
                 InputUtil.Type.KEYSYM,
                 GLFW.GLFW_KEY_C,
+                modCategory
+        ));
+
+        keyTranslateMistral = KeyBindingHelper.registerKeyBinding(new KeyBinding(
+                "key.npctranslator.translate.mistral",
+                InputUtil.Type.KEYSYM,
+                GLFW.GLFW_KEY_UNKNOWN,
+                modCategory
+        ));
+
+        keyTranslateOpenRouter = KeyBindingHelper.registerKeyBinding(new KeyBinding(
+                "key.npctranslator.translate.openrouter",
+                InputUtil.Type.KEYSYM,
+                GLFW.GLFW_KEY_UNKNOWN,
                 modCategory
         ));
 
@@ -156,15 +176,26 @@ public class NPCTranslatorClient implements ClientModInitializer {
 
             boolean pGemini = isKeyCurrentlyDown(keyTranslateGemini);
             geminiJustPressed = pGemini && !lastGeminiState;
-            lastGeminiState = pGemini;
+            boolean isGoogleDown = isKeyCurrentlyDown(keyTranslateGoogle);
+            boolean isGeminiDown = isKeyCurrentlyDown(keyTranslateGemini);
+            boolean isGroqDown = isKeyCurrentlyDown(keyTranslateGroq);
+            boolean isMistralDown = isKeyCurrentlyDown(keyTranslateMistral);
+            boolean isOpenRouterDown = isKeyCurrentlyDown(keyTranslateOpenRouter);
+            boolean isRevertDown = isKeyCurrentlyDown(keyRevertTranslation);
 
-            boolean pGroq = isKeyCurrentlyDown(keyTranslateGroq);
-            groqJustPressed = pGroq && !lastGroqState;
-            lastGroqState = pGroq;
+            googleJustPressed = isGoogleDown && !lastGoogleState;
+            geminiJustPressed = isGeminiDown && !lastGeminiState;
+            groqJustPressed = isGroqDown && !lastGroqState;
+            mistralJustPressed = isMistralDown && !lastMistralState;
+            openRouterJustPressed = isOpenRouterDown && !lastOpenRouterState;
+            revertJustPressed = isRevertDown && !lastRevertState;
 
-            boolean pRevert = isKeyCurrentlyDown(keyRevertTranslation);
-            revertJustPressed = pRevert && !lastRevertState;
-            lastRevertState = pRevert;
+            lastGoogleState = isGoogleDown;
+            lastGeminiState = isGeminiDown;
+            lastGroqState = isGroqDown;
+            lastMistralState = isMistralDown;
+            lastOpenRouterState = isOpenRouterDown;
+            lastRevertState = isRevertDown;
 
             TOGGLED_THIS_TICK.clear();
             
@@ -216,7 +247,6 @@ public class NPCTranslatorClient implements ClientModInitializer {
     }
 
     public static void reloadConfig() {
-        ModConfig.load();
         config = ModConfig.INSTANCE;
     }
 
@@ -543,6 +573,100 @@ public class NPCTranslatorClient implements ClientModInitializer {
                     throw new Exception("Gemini API failed. Status: " + response.statusCode());
                 }
             }
+        } else if (provider == ModConfig.TranslationProvider.MISTRAL) {
+            ModConfig.MistralModel[] allModels = ModConfig.MistralModel.values();
+            int startIndex = config.mistralModel.ordinal();
+            int attempts = config.autoFallbackOnLimit ? allModels.length : 1;
+
+            for (int i = 0; i < attempts; i++) {
+                ModConfig.MistralModel currentModel = allModels[(startIndex + i) % allModels.length];
+                JsonObject jsonBody = new JsonObject();
+                jsonBody.addProperty("model", currentModel.modelId);
+                JsonArray messages = new JsonArray();
+                JsonObject systemMessage = new JsonObject();
+                systemMessage.addProperty("role", "system");
+                if (isTooltip) {
+                    systemMessage.addProperty("content", "Translate Minecraft item tooltip to " + langName + ". CRITICAL: Keep all Minecraft § color codes. Maintain exact line order and spacing. Output ONLY translation.");
+                } else {
+                    systemMessage.addProperty("content", "Translate Minecraft NPC chat to " + langName + ". CRITICAL: Keep ALL Minecraft § color/formatting codes (like §e, §f, §l, §o etc) exactly where they are. DO NOT translate speaker names, player names, or prefixes. ONLY translate the actual message content. Output ONLY the final translated line with § codes preserved.");
+                }
+                messages.add(systemMessage);
+                JsonObject userMessage = new JsonObject();
+                userMessage.addProperty("role", "user");
+                userMessage.addProperty("content", content);
+                messages.add(userMessage);
+                jsonBody.add("messages", messages);
+
+                HttpRequest request = HttpRequest.newBuilder()
+                        .uri(URI.create("https://api.mistral.ai/v1/chat/completions"))
+                        .header("Authorization", "Bearer " + config.mistralApiKey)
+                        .header("Content-Type", "application/json")
+                        .POST(HttpRequest.BodyPublishers.ofString(GSON.toJson(jsonBody)))
+                        .build();
+
+                HttpResponse<String> response = HTTP_CLIENT.send(request, HttpResponse.BodyHandlers.ofString());
+                if (response.statusCode() == 200) {
+                    JsonObject responseJson = GSON.fromJson(response.body(), JsonObject.class);
+                    return responseJson.getAsJsonArray("choices").get(0).getAsJsonObject().getAsJsonObject("message").get("content").getAsString();
+                } else if (response.statusCode() == 429 && i < attempts - 1) {
+                    continue; // Limit aşıldı, sıradaki modele geç
+                }
+                
+                if (i == attempts - 1) {
+                    throw new Exception("Mistral API failed. Status: " + response.statusCode());
+                }
+            }
+        } else if (provider == ModConfig.TranslationProvider.OPENROUTER) {
+            ModConfig.OpenRouterModel[] allModels = ModConfig.OpenRouterModel.values();
+            int startIndex = config.openRouterModel.ordinal();
+            int attempts = config.autoFallbackOnLimit ? allModels.length : 1;
+
+            for (int i = 0; i < attempts; i++) {
+                ModConfig.OpenRouterModel currentModel = allModels[(startIndex + i) % allModels.length];
+                JsonObject jsonBody = new JsonObject();
+                jsonBody.addProperty("model", currentModel.modelId);
+                
+                // Extra setting recommended by OpenRouter documentation for routing
+                JsonObject httpReferer = new JsonObject();
+                httpReferer.addProperty("HTTP-Referer", "https://github.com/knutolof06/hypixel-skyblock-npc-and-items-translate");
+                httpReferer.addProperty("X-Title", "Minecraft NPC Translator Mod");
+                
+                JsonArray messages = new JsonArray();
+                JsonObject systemMessage = new JsonObject();
+                systemMessage.addProperty("role", "system");
+                if (isTooltip) {
+                    systemMessage.addProperty("content", "Translate Minecraft item tooltip to " + langName + ". CRITICAL: Keep all Minecraft § color codes. Maintain exact line order and spacing. Output ONLY translation.");
+                } else {
+                    systemMessage.addProperty("content", "Translate Minecraft NPC chat to " + langName + ". CRITICAL: Keep ALL Minecraft § color/formatting codes (like §e, §f, §l, §o etc) exactly where they are. DO NOT translate speaker names, player names, or prefixes. ONLY translate the actual message content. Output ONLY the final translated line with § codes preserved.");
+                }
+                messages.add(systemMessage);
+                JsonObject userMessage = new JsonObject();
+                userMessage.addProperty("role", "user");
+                userMessage.addProperty("content", content);
+                messages.add(userMessage);
+                jsonBody.add("messages", messages);
+
+                HttpRequest request = HttpRequest.newBuilder()
+                        .uri(URI.create("https://openrouter.ai/api/v1/chat/completions"))
+                        .header("Authorization", "Bearer " + config.openRouterApiKey)
+                        .header("Content-Type", "application/json")
+                        .header("HTTP-Referer", "https://github.com/knutolof06/hypixel-skyblock-npc-and-items-translate")
+                        .header("X-Title", "Minecraft NPC Translator Mod")
+                        .POST(HttpRequest.BodyPublishers.ofString(GSON.toJson(jsonBody)))
+                        .build();
+
+                HttpResponse<String> response = HTTP_CLIENT.send(request, HttpResponse.BodyHandlers.ofString());
+                if (response.statusCode() == 200) {
+                    JsonObject responseJson = GSON.fromJson(response.body(), JsonObject.class);
+                    return responseJson.getAsJsonArray("choices").get(0).getAsJsonObject().getAsJsonObject("message").get("content").getAsString();
+                } else if (response.statusCode() == 429 && i < attempts - 1) {
+                    continue; // Limit aşıldı, sıradaki modele geç
+                }
+                
+                if (i == attempts - 1) {
+                    throw new Exception("OpenRouter API failed. Status: " + response.statusCode());
+                }
+            }
         }
         return content;
     }
@@ -613,11 +737,8 @@ public class NPCTranslatorClient implements ClientModInitializer {
         ModConfig.TranslationProvider currentProvider = TRANSLATED_PROVIDER_CACHE.get(cacheKey);
         boolean isAlreadyTranslated = ACTIVE_TRANSLATED_ITEMS.contains(cacheKey) && ITEM_CACHE.containsKey(cacheKey);
 
-        // Toggle off if same key pressed while already translated with that provider
         if (googleJustPressed && config.enableGoogleItem && !TOGGLED_THIS_TICK.contains(cacheKey + "_G")) {
-            TOGGLED_THIS_TICK.add(cacheKey + "_G");
             if (isAlreadyTranslated && currentProvider == ModConfig.TranslationProvider.GOOGLE) {
-                // Same key pressed → revert
                 ACTIVE_TRANSLATED_ITEMS.remove(cacheKey); REVERTED_ITEMS.add(cacheKey);
                 TRANSLATED_PROVIDER_CACHE.remove(cacheKey); ITEM_CACHE.remove(cacheKey);
             } else {
@@ -625,9 +746,8 @@ public class NPCTranslatorClient implements ClientModInitializer {
                 ACTIVE_TRANSLATED_ITEMS.add(cacheKey); TRANSLATED_PROVIDER_CACHE.put(cacheKey, ModConfig.TranslationProvider.GOOGLE);
                 triggerTranslation(tooltip, cacheKey, ModConfig.TranslationProvider.GOOGLE);
             }
-        }
-        if (geminiJustPressed && config.enableGeminiItem && !TOGGLED_THIS_TICK.contains(cacheKey + "_X")) {
-            TOGGLED_THIS_TICK.add(cacheKey + "_X");
+            TOGGLED_THIS_TICK.add(cacheKey + "_G");
+        } else if (geminiJustPressed && config.enableGeminiItem && !TOGGLED_THIS_TICK.contains(cacheKey + "_X")) {
             if (isAlreadyTranslated && currentProvider == ModConfig.TranslationProvider.GEMINI) {
                 ACTIVE_TRANSLATED_ITEMS.remove(cacheKey); REVERTED_ITEMS.add(cacheKey);
                 TRANSLATED_PROVIDER_CACHE.remove(cacheKey); ITEM_CACHE.remove(cacheKey);
@@ -648,6 +768,28 @@ public class NPCTranslatorClient implements ClientModInitializer {
                 triggerTranslation(tooltip, cacheKey, ModConfig.TranslationProvider.GROQ);
             }
         }
+        if (mistralJustPressed && config.enableMistralItem && !TOGGLED_THIS_TICK.contains(cacheKey + "_M")) {
+            TOGGLED_THIS_TICK.add(cacheKey + "_M");
+            if (isAlreadyTranslated && currentProvider == ModConfig.TranslationProvider.MISTRAL) {
+                ACTIVE_TRANSLATED_ITEMS.remove(cacheKey); REVERTED_ITEMS.add(cacheKey);
+                TRANSLATED_PROVIDER_CACHE.remove(cacheKey); ITEM_CACHE.remove(cacheKey);
+            } else {
+                ITEM_CACHE.remove(cacheKey); PENDING_ITEMS.remove(cacheKey); REVERTED_ITEMS.remove(cacheKey);
+                ACTIVE_TRANSLATED_ITEMS.add(cacheKey); TRANSLATED_PROVIDER_CACHE.put(cacheKey, ModConfig.TranslationProvider.MISTRAL);
+                triggerTranslation(tooltip, cacheKey, ModConfig.TranslationProvider.MISTRAL);
+            }
+        }
+        if (openRouterJustPressed && config.enableOpenRouterItem && !TOGGLED_THIS_TICK.contains(cacheKey + "_O")) {
+            TOGGLED_THIS_TICK.add(cacheKey + "_O");
+            if (isAlreadyTranslated && currentProvider == ModConfig.TranslationProvider.OPENROUTER) {
+                ACTIVE_TRANSLATED_ITEMS.remove(cacheKey); REVERTED_ITEMS.add(cacheKey);
+                TRANSLATED_PROVIDER_CACHE.remove(cacheKey); ITEM_CACHE.remove(cacheKey);
+            } else {
+                ITEM_CACHE.remove(cacheKey); PENDING_ITEMS.remove(cacheKey); REVERTED_ITEMS.remove(cacheKey);
+                ACTIVE_TRANSLATED_ITEMS.add(cacheKey); TRANSLATED_PROVIDER_CACHE.put(cacheKey, ModConfig.TranslationProvider.OPENROUTER);
+                triggerTranslation(tooltip, cacheKey, ModConfig.TranslationProvider.OPENROUTER);
+            }
+        }
         if (revertJustPressed && !TOGGLED_THIS_TICK.contains(cacheKey + "_R")) {
             TOGGLED_THIS_TICK.add(cacheKey + "_R");
             ACTIVE_TRANSLATED_ITEMS.remove(cacheKey); REVERTED_ITEMS.add(cacheKey);
@@ -660,18 +802,33 @@ public class NPCTranslatorClient implements ClientModInitializer {
                            && ITEM_CACHE.get(cacheKey).stream().anyMatch(t -> t.getString().startsWith("⚠"));
         
         if (isTranslated) {
-            List<Text> translated = ITEM_CACHE.get(cacheKey);
             ModConfig.TranslationProvider provider = TRANSLATED_PROVIDER_CACHE.getOrDefault(cacheKey, ModConfig.TranslationProvider.GOOGLE);
-            try {
-                tooltip.clear();
-                tooltip.addAll(translated);
-                tooltip.add(Text.empty());
-                tooltip.add(Text.translatable(
-                    provider == ModConfig.TranslationProvider.GOOGLE ? "npctranslator.tooltip.translated.google" :
-                    provider == ModConfig.TranslationProvider.GEMINI ? "npctranslator.tooltip.translated.gemini" :
-                    "npctranslator.tooltip.translated.groq"
-                ).formatted(Formatting.GRAY, Formatting.ITALIC));
-            } catch (Exception ignored) {}
+            
+            // "tikli olmayan item altında yazısı çıkmasın google tranlate dahil"
+            boolean providerEnabled = false;
+            switch(provider) {
+                case GOOGLE: providerEnabled = config.enableGoogleItem; break;
+                case GEMINI: providerEnabled = config.enableGeminiItem; break;
+                case GROQ: providerEnabled = config.enableGroqItem; break;
+                case MISTRAL: providerEnabled = config.enableMistralItem; break;
+                case OPENROUTER: providerEnabled = config.enableOpenRouterItem; break;
+            }
+
+            if (providerEnabled) {
+                List<Text> translated = ITEM_CACHE.get(cacheKey);
+                try {
+                    tooltip.clear();
+                    tooltip.addAll(translated);
+                    tooltip.add(Text.empty());
+                    tooltip.add(Text.translatable(
+                        provider == ModConfig.TranslationProvider.GOOGLE ? "npctranslator.tooltip.translated.google" :
+                        provider == ModConfig.TranslationProvider.GEMINI ? "npctranslator.tooltip.translated.gemini" :
+                        provider == ModConfig.TranslationProvider.MISTRAL ? "npctranslator.tooltip.translated.mistral" :
+                        provider == ModConfig.TranslationProvider.OPENROUTER ? "npctranslator.tooltip.translated.openrouter" :
+                        "npctranslator.tooltip.translated.groq"
+                    ).formatted(Formatting.GRAY, Formatting.ITALIC));
+                } catch (Exception ignored) {}
+            }
         } else if (hasError) {
             // Show the error message stored in cache
             try {
@@ -705,6 +862,14 @@ public class NPCTranslatorClient implements ClientModInitializer {
             if (config.enableGroqItem && currentProvider != ModConfig.TranslationProvider.GROQ) {
                 String k = getKeyName(keyTranslateGroq, "C");
                 tooltip.add(Text.translatable("npctranslator.tooltip.translate.groq", k).formatted(Formatting.DARK_GRAY));
+            }
+            if (config.enableMistralItem && currentProvider != ModConfig.TranslationProvider.MISTRAL) {
+                String k = getKeyName(keyTranslateMistral, "Yok");
+                tooltip.add(Text.translatable("npctranslator.tooltip.translate.mistral", k).formatted(Formatting.DARK_GRAY));
+            }
+            if (config.enableOpenRouterItem && currentProvider != ModConfig.TranslationProvider.OPENROUTER) {
+                String k = getKeyName(keyTranslateOpenRouter, "Yok");
+                tooltip.add(Text.translatable("npctranslator.tooltip.translate.openrouter", k).formatted(Formatting.DARK_GRAY));
             }
             
             if (isTranslated) {
