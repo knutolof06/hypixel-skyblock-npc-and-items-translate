@@ -69,7 +69,7 @@ You have full control over the translation backend through the configuration men
 
 - **Loader:** Fabric
 - **Minecraft:** 1.21.11, 1.21.4 (26.1, 26.2)
-- **Required:** [Fabric API](https://modrinth.com/mod/fabric-api), [YetAnotherConfigLib (YACL)](https://modrinth.com/mod/yacl), [ModMenu](https://modrinth.com/mod/modmenu)
+- **Required:** Fabric API ([Modrinth](https://modrinth.com/mod/fabric-api) / [CurseForge](https://www.curseforge.com/minecraft/mc-mods/fabric-api)), YetAnotherConfigLib ([Modrinth](https://modrinth.com/mod/yacl) / [CurseForge](https://www.curseforge.com/minecraft/mc-mods/yacl)), ModMenu ([Modrinth](https://modrinth.com/mod/modmenu) / [CurseForge](https://www.curseforge.com/minecraft/mc-mods/modmenu))
 - **Side:** Client-side ONLY — safe to use on any multiplayer server including Hypixel!
 
 ---

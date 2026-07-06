@@ -65,7 +65,7 @@
 
 - **Загрузчик:** Fabric
 - **Minecraft:** 1.21.11, 1.21.4 (26.1, 26.2)
-- **Требуется:** [Fabric API](https://modrinth.com/mod/fabric-api), [YetAnotherConfigLib (YACL)](https://modrinth.com/mod/yacl), [ModMenu](https://modrinth.com/mod/modmenu)
+- **Требуется:** Fabric API ([Modrinth](https://modrinth.com/mod/fabric-api) / [CurseForge](https://www.curseforge.com/minecraft/mc-mods/fabric-api)), YetAnotherConfigLib ([Modrinth](https://modrinth.com/mod/yacl) / [CurseForge](https://www.curseforge.com/minecraft/mc-mods/yacl)), ModMenu ([Modrinth](https://modrinth.com/mod/modmenu) / [CurseForge](https://www.curseforge.com/minecraft/mc-mods/modmenu))
 - **Сторона:** ТОЛЬКО клиент (Client-side) — безопасно использовать на любом многопользовательском сервере, включая Hypixel!
 
 ---
