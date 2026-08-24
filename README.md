@@ -4,74 +4,111 @@
 
 # 🌍 NPC & Items Translator for Hypixel Skyblock & More
 
-Language barrier should never be a problem while enjoying your favorite servers. **NPC & Items Translator** is a fully customizable, intelligent client-side Fabric mod that seamlessly translates NPC chat messages, item descriptions, and GUI tooltips into your preferred language!
+Language barriers should never hold you back from enjoying your favorite Minecraft servers. **NPC & Items Translator** is a fully customizable, intelligent client-side Fabric mod that seamlessly translates NPC dialogues, item descriptions, and GUI tooltips into your preferred language with AI-powered accuracy and realistic voice narration (TTS)!
 
-Built especially with heavy game modes like **Hypixel SkyBlock** in mind, it perfectly handles complex color codes, dynamic lore (like live Bazaar prices), and interactive chat messages.
+Built especially with heavy RPG/MMO game modes like **Hypixel SkyBlock** in mind, it flawlessly handles complex color codes, dynamic lore (such as live Bazaar prices), interactive chat actions, and full multi-language UI localization.
 
 ---
 
 ## ✨ Core Features
 
 ### 💬 Interactive Chat Translation
-Tired of copying texts to your browser? A small **[Çevir]** (Translate) button will automatically appear next to chat messages.  
-Click it to instantly translate the text!
+Tired of copying text to your browser? A clean **[Translate]** button appears automatically next to chat messages.  
+Click it to instantly translate dialogue into your language!
 
-- **Auto-Translate Option:** You can enable auto-translation for chat. 
-- **Only Translate NPCs:** If enabled, it will only auto-translate NPC messages, leaving regular player chat alone (but keeping the manual translate button for them).
-- **Fully Reversible & Safe:** Click the **[TR]** tag anytime to instantly revert the text back to its original state. ALL original interactive chat click events (like *"Click here to open Auction House"*) are completely preserved!
+- **Auto-Translate Option:** Automatically translate all incoming chat messages without clicking.
+- **Only Translate NPCs:** Only translate NPC dialogue while leaving regular player chat untouched.
+- **Safe & Reversible:** Click the language tag (e.g. `[TR]`, `[EN]`) anytime to revert the text back to its original version. All interactive click events (*"Click to open Auction House"*, etc.) are completely preserved!
+
+### 🗣️ Built-in Text-to-Speech (TTS) Voice Narration
+Hear NPC dialogue spoken out loud in your language!
+- **Natural Voice Output:** Automatically narrates translated NPC dialogue or chat messages using high-quality Google TTS.
+- **Full Customization:** Adjust **Speech Speed** (0.25x - 2.00x) and **Voice Pitch / Tone** (0.60x - 1.40x) directly in the settings menu.
+- **Smart Queueing:** High-speed dialogue queue ensures smooth playback without stutter or lag.
 
 ### 📦 On-Demand Item Tooltip Translation
-Hover over any item and press the customizable hotkeys to translate the item lore with your preferred translation engine:
-- **`G`** — Translate via **Google Translate** (Free, Unlimited)
-- **`X`** — Translate via **Gemini API** (Smart, Fast)
-- **`C`** — Translate via **Groq API** (Ultra-fast LLM)
-- **`[Unassigned]`** — Translate via **Mistral API** *(You must assign a key in Controls)*
-- **`[Unassigned]`** — Translate via **OpenRouter API** *(You must assign a key in Controls)*
-- **`V`** — Revert translation to original
+Hover over any item and press customizable hotkeys to translate item lore with your preferred engine:
+- **`G`** — Translate via **Google Translate** (Free, Instant)
+- **`X`** — Translate via **Gemini AI** (Smart, High quality)
+- **`C`** — Translate via **Groq AI** (Ultra-fast LLM)
+- **`[Configurable]`** — Translate via **Mistral AI** *(Assign key in Controls)*
+- **`[Configurable]`** — Translate via **OpenRouter AI** *(Assign key in Controls)*
+- **`V`** — Revert translation back to original
 
-*Note: Pressing the same translation key twice acts as a toggle and reverts the translation.*
+*Note: Pressing the same translation key twice acts as a toggle to revert.*
 
 ### 🎨 Flawless Color Code Preservation
-Unlike basic translators that break Minecraft formatting, this mod extracts the `§` color codes, translates the raw meaning, and accurately puts the original colors back.  
-Your **Epic** items will stay purple, and your **Legendary** items will remain orange!
+Unlike basic translators that break Minecraft formatting, this mod extracts `§` color codes, translates the raw meaning, and accurately reapplies the original colors.  
+Your **Epic** items stay purple, and your **Legendary** items remain orange!
 
-### 🛡️ Smart Error Handling & API Fallback
-- If you forget to enter your API key or enter a wrong one, a clear warning will appear at the bottom of the item tooltip.
-- **Auto-Fallback on Limit:** If an AI model hits its Rate Limit (429), the mod will instantly and silently retry the translation using the next available model from the same provider!
+### 🛡️ Smart Error Handling & Automatic Model Fallback
+- If an API key is missing or invalid, an in-game warning will appear directly in the tooltip or chat.
+- **Auto-Fallback on Rate Limit:** If an AI model hits rate limits (429), the mod silently and automatically retries using the next available model from the same provider!
+
+---
+
+## 🌐 17 Supported Languages (UI & Translation)
+
+The mod includes complete UI localization and translation support for **17 major languages**:
+
+| Language | Code | Native Name |
+| :--- | :--- | :--- |
+| 🇬🇧 English | `en_us` | English |
+| 🇹🇷 Turkish | `tr_tr` | Türkçe |
+| 🇨🇳 Chinese (Simplified) | `zh_cn` | 简体中文 |
+| 🇪🇸 Spanish | `es_es` | Español |
+| 🇮🇳 Hindi | `hi_in` | हिन्दी |
+| 🇸🇦 Arabic | `ar_sa` | العربية |
+| 🇫🇷 French | `fr_fr` | Français |
+| 🇷🇺 Russian | `ru_ru` | Русский |
+| 🇧🇷 Portuguese (Brazil) | `pt_br` | Português (Brasil) |
+| 🇮🇩 Indonesian | `id_id` | Bahasa Indonesia |
+| 🇩🇪 German | `de_de` | Deutsch |
+| 🇯🇵 Japanese | `ja_jp` | 日本語 |
+| 🇰🇷 Korean | `ko_kr` | 한국어 |
+| 🇻🇳 Vietnamese | `vi_vn` | Tiếng Việt |
+| 🇮🇹 Italian | `it_it` | Italiano |
+| 🇵🇱 Polish | `pl_pl` | Polski |
+| 🇺🇦 Ukrainian | `uk_ua` | Українська |
 
 ---
 
 ## ⚙️ Translation Engines
 
-You have full control over the translation backend through the configuration menu (`/translate` or via ModMenu, or press **Z**). The mod supports multiple models for both AI engines. Hover over the setting in-game to see detailed model comparisons (RPM limits, best uses)!
+You have full control over the translation backend through the configuration menu (`/translate` or via ModMenu, or by pressing **Z**).
 
 | Engine | Description |
-|--------|-------------|
-| 🤖 **Gemini API** | Uses Google's latest Gemini models (e.g. Gemini 2.5 Flash, Gemini Flash-Lite). Excellent contextual understanding and formatting retention. Requires a free API key from [Google AI Studio](https://aistudio.google.com). |
-| ⚡ **Groq API** | Uses ultra-fast LLMs (like Llama-3.3-70B, Qwen3) to contextually understand Minecraft terms. Requires a free API key from [console.groq.com](https://console.groq.com). |
-| 🌪️ **Mistral API** | Uses Mistral's powerful models (e.g., Mistral Large, Ministral). Reliable and high quality. Requires a free API key from [console.mistral.ai](https://console.mistral.ai). |
-| 🌍 **OpenRouter API** | Access a massive variety of LLMs (Claude, Llama, Qwen, etc.) through a single unified API. Requires a free API key from [openrouter.ai](https://openrouter.ai). |
-| 🌐 **Google Translate** | Don't want an API key? Enjoy unlimited, fast, and completely free translations with no setup required. |
+|---|---|
+| 🤖 **Gemini AI** | Google's latest Gemini models (e.g. Gemini 2.5 Flash, Flash-Lite). Excellent contextual understanding and formatting retention. Get a free API key at [Google AI Studio](https://aistudio.google.com). |
+| ⚡ **Groq AI** | Ultra-fast LLMs (Llama 3.3 70B, Qwen3) to contextually understand Minecraft and MMO terminology. Get a free API key at [console.groq.com](https://console.groq.com). |
+| 🌪️ **Mistral AI** | Mistral's powerful models (Mistral Large, Ministral). Reliable and high quality. Get a free API key at [console.mistral.ai](https://console.mistral.ai). |
+| 🌍 **OpenRouter AI** | Access a wide variety of LLMs (Claude, Llama, Qwen, DeepSeek, etc.) through a single unified API. Get a key at [openrouter.ai](https://openrouter.ai). |
+| 🌐 **Google Translate** | No API key required! Enjoy unlimited, fast, and completely free translations with zero setup. |
 
 ---
 
-## 🔧 Configuration & Settings
+## 🔧 Configuration & Commands
 
-- **In-game GUI:** `/translate` command, **Z** keybind, or ESC → Mods → NPC & Items Translator
+- **In-game GUI:** `/translate` command, **`Z`** keybind, or `ESC → Mods → NPC & Items Translator`
 - **Dynamic Language:** Translate to your Minecraft Client Language automatically, or choose a specific Target Language.
-- **Keybinds:** `Controls` → `Key Binds` → **NPC & Eşya Çevirici**
+- **Keybinds:** `Options → Controls → Key Binds → NPC & Items Translator`
+- **Dictionary Reset:** `/translate DeleteDict` or via the in-game Hub menu.
 
 ---
 
 ## 📦 Compatibility & Requirements
 
 - **Loader:** Fabric
-- **Minecraft:** 1.21.11, 1.21.4 (26.1, 26.2)
-- **Required:** Fabric API ([Modrinth](https://modrinth.com/mod/fabric-api) / [CurseForge](https://www.curseforge.com/minecraft/mc-mods/fabric-api)), YetAnotherConfigLib ([Modrinth](https://modrinth.com/mod/yacl) / [CurseForge](https://www.curseforge.com/minecraft/mc-mods/yacl)), ModMenu ([Modrinth](https://modrinth.com/mod/modmenu) / [CurseForge](https://www.curseforge.com/minecraft/mc-mods/modmenu))
-- **Side:** Client-side ONLY — safe to use on any multiplayer server including Hypixel!
+- **Supported Minecraft Versions:** `1.21.11`, `26.1`, `26.2`
+- **Dependencies:** 
+  - [Fabric API](https://modrinth.com/mod/fabric-api)
+  - [YetAnotherConfigLib (YACL)](https://modrinth.com/mod/yacl)
+  - [ModMenu](https://modrinth.com/mod/modmenu)
+- **Side:** Client-side ONLY — 100% safe to use on multiplayer servers including Hypixel!
 
 ---
 
 ## 📄 License
 
 MIT License
+

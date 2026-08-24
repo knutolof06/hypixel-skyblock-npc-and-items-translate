@@ -38,7 +38,7 @@ public class HubScreen extends Screen {
             TranslationDictionary.clear();
             NPCTranslatorClient.ITEM_CACHE.clear();
             if (this.minecraft != null && this.minecraft.player != null) {
-                this.minecraft.player.sendSystemMessage(Component.literal("§a✅ Sözlük silindi! (" + count + " kayıt temizlendi)"));
+                this.minecraft.player.sendSystemMessage(Component.translatable("npctranslator.dict_cleared", count));
             }
             NPCTranslatorClient.setScreen(this.minecraft, null);
         }).bounds(this.width / 2 - buttonWidth / 2, startY + spacing, buttonWidth, buttonHeight).build());

@@ -2,6 +2,7 @@ package com.npctranslator;
 
 import com.google.gson.Gson;
 import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.npctranslator.config.ModConfig;
 import com.npctranslator.mixin.ChatHudAccessor;
@@ -48,6 +49,7 @@ public class NPCTranslatorClient implements ClientModInitializer {
     public static KeyBinding menuKey;
 
     private static final Map<String, ModConfig.TranslationProvider> TRANSLATED_PROVIDER_CACHE = new ConcurrentHashMap<>();
+    private static final Map<String, String> TRANSLATION_MEMORY_CACHE = new ConcurrentHashMap<>();
     
     public static final Map<String, List<Text>> ITEM_CACHE = new ConcurrentHashMap<>();
     private static final Set<String> PENDING_ITEMS = Collections.newSetFromMap(new ConcurrentHashMap<>());
@@ -56,6 +58,12 @@ public class NPCTranslatorClient implements ClientModInitializer {
     private static final java.util.concurrent.atomic.AtomicInteger messageCounter = new java.util.concurrent.atomic.AtomicInteger(0);
     private static final Map<String, String> MESSAGE_ID_TO_BASE64 = new ConcurrentHashMap<>();
     private static final Set<String> TOGGLED_THIS_TICK = Collections.newSetFromMap(new ConcurrentHashMap<>());
+
+    // ── TTS Queue (prevents audio overlap) ──────────────────────────────────────
+    private static final java.util.concurrent.LinkedBlockingQueue<String> TTS_QUEUE =
+            new java.util.concurrent.LinkedBlockingQueue<>(50);
+    private static volatile boolean TTS_RUNNER_STARTED = false;
+
     
     private static final Set<String> ACTIVE_TRANSLATED_ITEMS = Collections.newSetFromMap(new ConcurrentHashMap<>());
     public static boolean googleJustPressed = false;
@@ -87,6 +95,7 @@ public class NPCTranslatorClient implements ClientModInitializer {
     public void onInitializeClient() {
         ModConfig.load();
         config = ModConfig.INSTANCE;
+        startTtsRunner();
 
         KeyBinding.Category modCategory = KeyBinding.Category.create(Identifier.of("npctranslator", "keys"));
 
@@ -144,7 +153,8 @@ public class NPCTranslatorClient implements ClientModInitializer {
             if (overlay) return text;
             String rawText = text.getString();
             if (rawText.trim().length() < 2) return text;
-            if (rawText.contains("[Çevir]") || rawText.contains("[TR]") || rawText.contains("[Translate]") || rawText.contains("[EN]")) {
+            String btnText = Text.translatable("npctranslator.button").getString();
+            if (rawText.contains("[Çevir]") || rawText.contains("[TR]") || rawText.contains("[Translate]") || rawText.contains("[EN]") || (!btnText.isEmpty() && rawText.contains(btnText))) {
                 return text;
             }
             
@@ -154,6 +164,15 @@ public class NPCTranslatorClient implements ClientModInitializer {
             MESSAGE_ID_TO_BASE64.put(msgId, encodedText);
 
             boolean shouldAutoTranslate = config.autoTranslateChat && (!config.onlyTranslateNpcChat || rawText.contains("[NPC] "));
+
+            if (config.enableTts && !shouldAutoTranslate) {
+                boolean isNpcMsg = rawText.contains("[NPC] ") || rawText.contains("NPC");
+                if (config.ttsMode == ModConfig.TtsMode.ALL_CHAT) {
+                    speakText(rawText);
+                } else if (config.ttsMode == ModConfig.TtsMode.NPC_ONLY && isNpcMsg) {
+                    speakText(rawText);
+                }
+            }
 
             if (shouldAutoTranslate) {
                 handleTranslation(msgId);
@@ -410,8 +429,8 @@ public class NPCTranslatorClient implements ClientModInitializer {
         String displayLanguageCode;
         if (config.useGameLanguage) {
             String userLanguage = client.options.language;
-            targetLangName = "the language for locale: " + userLanguage;
-            displayLanguageCode = userLanguage.contains("_") ? userLanguage.split("_")[0] : "tr";
+            displayLanguageCode = getEffectiveLanguageCode();
+            targetLangName = "the language for locale code: " + displayLanguageCode + " (user locale: " + userLanguage + ")";
         } else {
             targetLangName = config.targetLanguage.englishName;
             displayLanguageCode = config.targetLanguage.code;
@@ -443,6 +462,13 @@ public class NPCTranslatorClient implements ClientModInitializer {
 
                 String translatedText = getTranslatedText(formattedInput, displayLanguageCode, targetLangName, false, config.chatTranslationProvider);
 
+                if (config.enableTts) {
+                    boolean isNpcMsg = formattedInput.contains("[NPC] ") || formattedInput.contains("NPC");
+                    if (config.ttsMode == ModConfig.TtsMode.ALL_CHAT || config.ttsMode == ModConfig.TtsMode.TRANSLATED_ONLY || (config.ttsMode == ModConfig.TtsMode.NPC_ONLY && isNpcMsg)) {
+                        speakText(translatedText);
+                    }
+                }
+
                 MutableText prefix = Text.translatable("npctranslator.translated", displayLanguageCode.toUpperCase())
                     .styled(style -> style.withColor(Formatting.GREEN)
                         .withClickEvent(new ClickEvent.RunCommand("/revert_npc " + msgId))
@@ -464,19 +490,83 @@ public class NPCTranslatorClient implements ClientModInitializer {
 
     private static String getTranslatedText(String content, String langCode, String langName, boolean isTooltip, ModConfig.TranslationProvider provider) throws Exception {
         if (provider == ModConfig.TranslationProvider.GOOGLE) {
-            String url = "https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=" + langCode + "&dt=t&q=" + java.net.URLEncoder.encode(content, "UTF-8");
-            HttpRequest request = HttpRequest.newBuilder().uri(URI.create(url)).GET().build();
-            HttpResponse<String> response = HTTP_CLIENT.send(request, HttpResponse.BodyHandlers.ofString());
-            if (response.statusCode() == 200) {
-                JsonArray jsonArray = GSON.fromJson(response.body(), JsonArray.class);
-                JsonArray sentences = jsonArray.get(0).getAsJsonArray();
-                StringBuilder sb = new StringBuilder();
-                for (int i = 0; i < sentences.size(); i++) {
-                    sb.append(sentences.get(i).getAsJsonArray().get(0).getAsString());
-                }
-                return sb.toString();
+            String cacheKey = langCode + ":" + content;
+            String cached = TRANSLATION_MEMORY_CACHE.get(cacheKey);
+            if (cached != null) return cached;
+
+            String encoded = java.net.URLEncoder.encode(content, "UTF-8");
+            String userAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36";
+
+            String[] urls = new String[] {
+                "https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=" + langCode + "&dt=t&q=" + encoded,
+                "https://translate.googleapis.com/translate_a/single?client=dict-chrome-ex&sl=auto&tl=" + langCode + "&dt=t&q=" + encoded,
+                "https://clients5.google.com/translate_a/t?client=dict-chrome-ex&sl=auto&tl=" + langCode + "&q=" + encoded
+            };
+
+            for (String url : urls) {
+                try {
+                    HttpRequest request = HttpRequest.newBuilder()
+                            .uri(URI.create(url))
+                            .header("User-Agent", userAgent)
+                            .header("Accept", "*/*")
+                            .timeout(java.time.Duration.ofSeconds(4))
+                            .GET()
+                            .build();
+
+                    HttpResponse<String> response = HTTP_CLIENT.send(request, HttpResponse.BodyHandlers.ofString());
+                    if (response.statusCode() == 200) {
+                        String body = response.body();
+                        if (url.contains("clients5.google.com")) {
+                            try {
+                                JsonElement el = GSON.fromJson(body, JsonElement.class);
+                                if (el.isJsonArray()) {
+                                    String res = el.getAsJsonArray().get(0).getAsString();
+                                    TRANSLATION_MEMORY_CACHE.put(cacheKey, res);
+                                    return res;
+                                } else if (el.isJsonPrimitive()) {
+                                    String res = el.getAsString();
+                                    TRANSLATION_MEMORY_CACHE.put(cacheKey, res);
+                                    return res;
+                                }
+                            } catch (Exception ignored) {}
+                        } else {
+                            JsonArray jsonArray = GSON.fromJson(body, JsonArray.class);
+                            JsonArray sentences = jsonArray.get(0).getAsJsonArray();
+                            StringBuilder sb = new StringBuilder();
+                            for (int i = 0; i < sentences.size(); i++) {
+                                sb.append(sentences.get(i).getAsJsonArray().get(0).getAsString());
+                            }
+                            String res = sb.toString();
+                            TRANSLATION_MEMORY_CACHE.put(cacheKey, res);
+                            return res;
+                        }
+                    }
+                } catch (Exception ignored) {}
             }
-            throw new Exception("Google Translate failed. Status: " + response.statusCode());
+
+            // Fallback 4: MyMemory free translation API
+            try {
+                String myMemoryUrl = "https://api.mymemory.translated.net/get?q=" + encoded + "&langpair=auto|" + langCode;
+                HttpRequest request = HttpRequest.newBuilder()
+                        .uri(URI.create(myMemoryUrl))
+                        .header("User-Agent", userAgent)
+                        .timeout(java.time.Duration.ofSeconds(4))
+                        .GET()
+                        .build();
+                HttpResponse<String> response = HTTP_CLIENT.send(request, HttpResponse.BodyHandlers.ofString());
+                if (response.statusCode() == 200) {
+                    JsonObject obj = GSON.fromJson(response.body(), JsonObject.class);
+                    if (obj.has("responseData")) {
+                        String res = obj.getAsJsonObject("responseData").get("translatedText").getAsString();
+                        if (res != null && !res.isEmpty()) {
+                            TRANSLATION_MEMORY_CACHE.put(cacheKey, res);
+                            return res;
+                        }
+                    }
+                }
+            } catch (Exception ignored) {}
+
+            throw new Exception("Google Translate failed. (All mirror endpoints rate-limited)");
         } else if (provider == ModConfig.TranslationProvider.GROQ) {
             ModConfig.GroqModel[] allModels = ModConfig.GroqModel.values();
             int startIndex = config.groqModel.ordinal();
@@ -706,7 +796,7 @@ public class NPCTranslatorClient implements ClientModInitializer {
         if (client == null) return;
         
         String itemKey = stack.getItem().toString() + "_" + (stack.getComponents() != null ? stack.getComponents().hashCode() : 0);
-        String lang = config.useGameLanguage ? clientLanguage() : config.targetLanguage.code;
+        String lang = getEffectiveLanguageCode();
         String cacheKey = itemKey + "_" + lang;
 
         handleTooltipStateAndRender(tooltip, cacheKey);
@@ -727,7 +817,7 @@ public class NPCTranslatorClient implements ClientModInitializer {
         for (Text t : tooltip) content.append(t.getString());
         if (content.length() < 10) return; // Too short to be an item lore usually
 
-        String lang = config.useGameLanguage ? clientLanguage() : config.targetLanguage.code;
+        String lang = getEffectiveLanguageCode();
         String cacheKey = "gen_" + Integer.toHexString(content.toString().hashCode()) + "_" + lang;
 
         handleTooltipStateAndRender(tooltip, cacheKey);
@@ -889,13 +979,12 @@ public class NPCTranslatorClient implements ClientModInitializer {
         if (PENDING_ITEMS.contains(cacheKey)) return;
         if (provider == ModConfig.TranslationProvider.GROQ && (config.groqApiKey == null || config.groqApiKey.isEmpty())) {
             ACTIVE_TRANSLATED_ITEMS.remove(cacheKey);
-            ITEM_CACHE.put(cacheKey + "_API_ERROR", List.of(Text.literal("⚠ API KONTROL EDİN").formatted(Formatting.RED, Formatting.BOLD)));
-            ITEM_CACHE.put(cacheKey, List.of(Text.literal("⚠ Groq API Anahtarı Girilmemiş!").formatted(Formatting.RED, Formatting.BOLD)));
+            ITEM_CACHE.put(cacheKey, List.of(Text.translatable("npctranslator.error.config").formatted(Formatting.RED, Formatting.BOLD)));
             return;
         }
         if (provider == ModConfig.TranslationProvider.GEMINI && (config.geminiApiKey == null || config.geminiApiKey.isEmpty())) {
             ACTIVE_TRANSLATED_ITEMS.remove(cacheKey);
-            ITEM_CACHE.put(cacheKey, List.of(Text.literal("⚠ Gemini API Anahtarı Girilmemiş!").formatted(Formatting.RED, Formatting.BOLD)));
+            ITEM_CACHE.put(cacheKey, List.of(Text.translatable("npctranslator.error.config").formatted(Formatting.RED, Formatting.BOLD)));
             return;
         }
 
@@ -906,8 +995,8 @@ public class NPCTranslatorClient implements ClientModInitializer {
             fullTooltip.append(toFormattedString(line)).append("\n");
         }
 
-        String targetLang = config.useGameLanguage ? clientLanguage() : config.targetLanguage.englishName;
-        String langCode = config.useGameLanguage ? (clientLanguage().contains("_") ? clientLanguage().split("_")[0] : "tr") : config.targetLanguage.code;
+        String langCode = getEffectiveLanguageCode();
+        String targetLang = config.useGameLanguage ? ("the language for locale code: " + langCode) : config.targetLanguage.englishName;
 
         CompletableFuture.runAsync(() -> {
             try {
@@ -988,4 +1077,225 @@ public class NPCTranslatorClient implements ClientModInitializer {
         MinecraftClient client = MinecraftClient.getInstance();
         return (client != null && client.options != null) ? client.options.language : "en_us";
     }
+
+    public static String getEffectiveLanguageCode() {
+        ModConfig config = ModConfig.INSTANCE;
+        if (!config.useGameLanguage) {
+            return config.targetLanguage.code;
+        }
+        String userLang = clientLanguage();
+        if (userLang == null || userLang.trim().isEmpty()) return "tr";
+        userLang = userLang.toLowerCase().trim();
+
+        switch (userLang) {
+            case "zh_cn":
+            case "zh_hans":
+                return "zh-CN";
+            case "zh_tw":
+            case "zh_hk":
+            case "zh_hant":
+                return "zh-TW";
+            case "pt_br":
+                return "pt-BR";
+            case "pt_pt":
+                return "pt";
+            case "he_il":
+                return "he";
+            case "fil_ph":
+            case "tl_ph":
+                return "tl";
+            case "brb": // Brabantian -> Dutch
+            case "vls_be":
+            case "zea_nl":
+            case "li_li":
+                return "nl";
+            case "bar_at":
+            case "gsw_ch":
+            case "nds_de":
+            case "ksh_de":
+            case "pfl_de":
+                return "de";
+            case "szl_pl":
+            case "csb_pl":
+                return "pl";
+            case "vec_it":
+            case "lmo_it":
+            case "scn_it":
+            case "nap_it":
+            case "fur_it":
+            case "pms_it":
+                return "it";
+            case "ast_es":
+            case "an_es":
+            case "ext_es":
+                return "es";
+            case "val_es":
+                return "ca";
+            case "sr_sp":
+                return "sr";
+            case "az_az":
+                return "az";
+            case "mt_mt":
+                return "mt";
+            case "nb_no":
+            case "nn_no":
+                return "no";
+            default:
+                if (userLang.contains("_")) {
+                    return userLang.split("_")[0];
+                }
+                return userLang;
+        }
+    }
+
+    private static String getTargetLanguageCode() {
+        return getEffectiveLanguageCode();
+    }
+
+    // ── Start TTS queue runner (called once at mod init) ────────────────────────
+    private static void startTtsRunner() {
+        if (TTS_RUNNER_STARTED) return;
+        TTS_RUNNER_STARTED = true;
+        Thread t = new Thread(() -> {
+            while (true) {
+                try {
+                    String text = TTS_QUEUE.take(); // blocks until a message arrives
+                    playNow(text);
+                } catch (InterruptedException ie) {
+                    Thread.currentThread().interrupt();
+                    break;
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            }
+        }, "TTS-Queue-Runner");
+        t.setDaemon(true);
+        t.start();
+    }
+
+    // ── Add text to queue (called by MODIFY_GAME / handleTranslation) ───────────
+    public static void speakText(String text) {
+        if (text == null || text.trim().isEmpty()) return;
+        ModConfig cfg = ModConfig.INSTANCE;
+        if (!cfg.enableTts) return;
+
+        startTtsRunner();
+
+        String clean = text.replaceAll("§[0-9a-fk-rA-FK-R]", "").trim();
+        clean = clean.replaceAll("^\\[.*?\\]", "").trim();
+        if (clean.isEmpty()) return;
+
+        TTS_QUEUE.offer(clean); // if queue full (50 items), silently drop
+    }
+
+    // ── Actually play audio — called by queue runner (blocking) ─────────────────
+    private static void playNow(String text) {
+        ModConfig cfg = ModConfig.INSTANCE;
+        playGoogleTts(text, getTargetLanguageCode(), cfg.ttsSpeed, cfg.ttsPitch);
+    }
+
+    // ─── Google TTS engine with multi-endpoint and language fallback ────────────
+    private static void playGoogleTts(String text, String langCode, float speed, float pitch) {
+        java.io.File tempMp3 = null;
+        try {
+            String paddedText = " , , " + text;
+            String encodedText = java.net.URLEncoder.encode(paddedText, "UTF-8");
+
+            List<String> langCandidates = new ArrayList<>();
+            if (langCode != null && !langCode.trim().isEmpty()) {
+                langCandidates.add(langCode.trim());
+            }
+            if ("he".equalsIgnoreCase(langCode)) langCandidates.add(0, "iw");
+            if ("jv".equalsIgnoreCase(langCode)) langCandidates.add(0, "jw");
+            if ("mt".equalsIgnoreCase(langCode)) { langCandidates.add("it"); langCandidates.add("en"); }
+            if (!langCandidates.contains("tr")) langCandidates.add("tr");
+            if (!langCandidates.contains("en")) langCandidates.add("en");
+
+            byte[] audioBytes = null;
+
+            for (String tryLang : langCandidates) {
+                String[] endpoints = new String[]{
+                    "https://translate.google.com/translate_tts?ie=UTF-8&tl=" + tryLang + "&client=tw-ob&q=" + encodedText,
+                    "https://clients5.google.com/translate_tts?ie=UTF-8&tl=" + tryLang + "&client=dict-chrome-ex&q=" + encodedText,
+                    "https://translate.google.com/translate_tts?ie=UTF-8&tl=" + tryLang + "&client=gtx&q=" + encodedText
+                };
+
+                for (String urlStr : endpoints) {
+                    try {
+                        java.net.URL url = new java.net.URL(urlStr);
+                        java.net.HttpURLConnection conn = (java.net.HttpURLConnection) url.openConnection();
+                        conn.setRequestProperty("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36");
+                        conn.setRequestProperty("Accept", "audio/mpeg, audio/*");
+                        conn.setConnectTimeout(4000);
+                        conn.setReadTimeout(4000);
+                        conn.connect();
+                        if (conn.getResponseCode() == 200) {
+                            try (java.io.InputStream in = conn.getInputStream();
+                                 java.io.ByteArrayOutputStream baos = new java.io.ByteArrayOutputStream()) {
+                                byte[] buf = new byte[8192];
+                                int n;
+                                while ((n = in.read(buf)) != -1) baos.write(buf, 0, n);
+                                if (baos.size() > 500) {
+                                    audioBytes = baos.toByteArray();
+                                    break;
+                                }
+                            }
+                        }
+                    } catch (Exception ignored) {}
+                }
+                if (audioBytes != null) break;
+            }
+
+            if (audioBytes == null || audioBytes.length == 0) return;
+
+            tempMp3 = java.io.File.createTempFile("npctts_", ".mp3");
+            tempMp3.deleteOnExit();
+            try (java.io.FileOutputStream fos = new java.io.FileOutputStream(tempMp3)) {
+                fos.write(audioBytes);
+            }
+
+            float effectiveRate = Math.max(0.2f, Math.min(3.0f, speed * pitch));
+            int mciSpeed = Math.round(effectiveRate * 1000.0f);
+            String filePath = tempMp3.getAbsolutePath().replace("\\", "/");
+
+            String script =
+                "$src = @\"\r\n" +
+                "using System;\r\n" +
+                "using System.Runtime.InteropServices;\r\n" +
+                "public class MciPlayer {\r\n" +
+                "    [DllImport(\"winmm.dll\", EntryPoint=\"mciSendStringW\", CharSet=CharSet.Unicode)]\r\n" +
+                "    public static extern int mciSendString(string c, string r, int l, IntPtr h);\r\n" +
+                "}\r\n" +
+                "\"@\r\n" +
+                "Add-Type -TypeDefinition $src\r\n" +
+                "[MciPlayer]::mciSendString('close all', $null, 0, [IntPtr]::Zero)\r\n" +
+                "$f = \"" + filePath + "\"\r\n" +
+                "[MciPlayer]::mciSendString(\"open `\"$f`\" type mpegvideo alias npctts\", $null, 0, [IntPtr]::Zero)\r\n" +
+                "[MciPlayer]::mciSendString(\"set npctts speed " + mciSpeed + "\", $null, 0, [IntPtr]::Zero)\r\n" +
+                "[MciPlayer]::mciSendString(\"play npctts wait\", $null, 0, [IntPtr]::Zero)\r\n" +
+                "[MciPlayer]::mciSendString(\"close npctts\", $null, 0, [IntPtr]::Zero)\r\n";
+
+            // Encode as UTF-16LE + base64 for -EncodedCommand (no shell escaping at all)
+            byte[] scriptBytes = script.getBytes(java.nio.charset.Charset.forName("UTF-16LE"));
+            String encodedScript = java.util.Base64.getEncoder().encodeToString(scriptBytes);
+
+            ProcessBuilder pb = new ProcessBuilder("powershell.exe", "-NoProfile", "-ExecutionPolicy", "Bypass", "-EncodedCommand", encodedScript);
+            pb.redirectErrorStream(true);
+            proc(pb, 90);
+        } catch (Exception e) {
+            // silently ignore
+        } finally {
+            if (tempMp3 != null) try { tempMp3.delete(); } catch (Exception ignored) {}
+        }
+    }
+
+    /** Runs a ProcessBuilder and waits up to timeoutSeconds. */
+    private static void proc(ProcessBuilder pb, int timeoutSeconds) throws Exception {
+        Process p = pb.start();
+        p.waitFor(timeoutSeconds, java.util.concurrent.TimeUnit.SECONDS);
+        if (p.isAlive()) p.destroyForcibly();
+    }
 }
+
+
+

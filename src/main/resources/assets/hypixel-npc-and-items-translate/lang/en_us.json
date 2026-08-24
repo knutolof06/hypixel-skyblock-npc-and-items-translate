@@ -105,5 +105,19 @@
   "npctranslator.config.keybinds.desc": "Opens the original Minecraft Keybinds menu.",
   "npctranslator.error.api_key_invalid": "⚠ Invalid %s API Key!",
   "npctranslator.error.api_limit_exceeded": "⚠ %s API Rate Limit Exceeded (All models)!",
-  "npctranslator.error.api_general": "⚠ %s API Error - PLEASE CHECK"
+  "npctranslator.error.api_general": "⚠ %s API Error - PLEASE CHECK",
+  "category.npctranslator.tts": "TTS / Voice Narration",
+  "category.npctranslator.tts.tooltip": "Configure Text-to-Speech voice narration settings.",
+  "group.npctranslator.tts": "Voice Narration Options",
+  "text.autoconfig.npc_translator.option.enableTts": "Enable Voice Narration",
+  "text.autoconfig.npc_translator.option.enableTts.tooltip": "Read out chat messages using text-to-speech.",
+  "text.autoconfig.npc_translator.option.ttsMode": "Narration Target",
+  "text.autoconfig.npc_translator.option.ttsSpeed": "Speech Speed",
+  "text.autoconfig.npc_translator.option.ttsSpeed.tooltip": "Adjust playback speed. 1.00x = normal speed.",
+  "text.autoconfig.npc_translator.option.ttsPitch": "Voice Pitch / Tone",
+  "text.autoconfig.npc_translator.option.ttsPitch.tooltip": "Adjust voice tone. Below 0.85x gives a deeper/masculine tone, above 1.15x gives a higher tone.",
+  "npctranslator.config.tts.mode.npc_only": "NPC Only",
+  "npctranslator.config.tts.mode.all_chat": "All Chat",
+  "npctranslator.config.tts.mode.translated_only": "Only Translated Chat",
+  "npctranslator.dict_cleared": "§a✅ Translation dictionary cleared! (%s entries removed)"
 }

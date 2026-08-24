@@ -35,7 +35,7 @@ public class HubScreen extends Screen {
         this.addDrawableChild(ButtonWidget.builder(Text.translatable("npctranslator.option.clearDict"), button -> {
             NPCTranslatorClient.ITEM_CACHE.clear();
             if (this.client != null && this.client.player != null) {
-                this.client.player.sendMessage(Text.literal("§a✅ Bellek silindi!"), false);
+                this.client.player.sendMessage(Text.translatable("npctranslator.dict_cleared", 0), false);
             }
             this.client.setScreen(null);
         }).dimensions(this.width / 2 - buttonWidth / 2, startY + spacing, buttonWidth, buttonHeight).build());
