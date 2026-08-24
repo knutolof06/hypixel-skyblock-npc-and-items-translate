@@ -1,23 +1,19 @@
-# gradle
-
+﻿# gradle
 .gradle/
 build/
 out/
 classes/
 
 # eclipse
-
 *.launch
 
 # idea
-
 .idea/
 *.iml
 *.ipr
 *.iws
 
 # vscode
-
 .settings/
 .vscode/
 bin/
@@ -25,48 +21,12 @@ bin/
 .project
 
 # macos
-
 *.DS_Store
 
 # fabric
-
-run/
-# gradle
-
-.gradle/
-build/
-out/
-classes/
-
-# eclipse
-
-*.launch
-
-# idea
-
-.idea/
-*.iml
-*.ipr
-*.iws
-
-# vscode
-
-.settings/
-.vscode/
-bin/
-.classpath
-.project
-
-# macos
-
-*.DS_Store
-
-# fabric
-
 run/
 
-# java
-
+# java & logs
 hs_err_*.log
 replay_*.log
 *.hprof
@@ -76,7 +36,7 @@ build_*.txt
 *.txt
 oracleJdk-26/
 scratch_*
-com/
+/com/
 Test.java
 test-build-26x.ps1
 run-print-methods.ps1
