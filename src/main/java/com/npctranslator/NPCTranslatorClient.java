@@ -945,20 +945,20 @@ public class NPCTranslatorClient implements ClientModInitializer {
                 String k = getKeyName(keyTranslateGoogle, "G");
                 tooltip.add(Text.translatable("npctranslator.tooltip.translate.google", k).formatted(Formatting.DARK_GRAY));
             }
-            if (config.enableGeminiItem && currentProvider != ModConfig.TranslationProvider.GEMINI) {
+            if (config.enableGeminiItem && config.geminiApiKey != null && !config.geminiApiKey.trim().isEmpty() && currentProvider != ModConfig.TranslationProvider.GEMINI) {
                 String k = getKeyName(keyTranslateGemini, "X");
                 tooltip.add(Text.translatable("npctranslator.tooltip.translate.gemini", k).formatted(Formatting.DARK_GRAY));
             }
-            if (config.enableGroqItem && currentProvider != ModConfig.TranslationProvider.GROQ) {
+            if (config.enableGroqItem && config.groqApiKey != null && !config.groqApiKey.trim().isEmpty() && currentProvider != ModConfig.TranslationProvider.GROQ) {
                 String k = getKeyName(keyTranslateGroq, "C");
                 tooltip.add(Text.translatable("npctranslator.tooltip.translate.groq", k).formatted(Formatting.DARK_GRAY));
             }
-            if (config.enableMistralItem && currentProvider != ModConfig.TranslationProvider.MISTRAL) {
-                String k = getKeyName(keyTranslateMistral, "Yok");
+            if (config.enableMistralItem && config.mistralApiKey != null && !config.mistralApiKey.trim().isEmpty() && currentProvider != ModConfig.TranslationProvider.MISTRAL) {
+                String k = getKeyName(keyTranslateMistral, "-");
                 tooltip.add(Text.translatable("npctranslator.tooltip.translate.mistral", k).formatted(Formatting.DARK_GRAY));
             }
-            if (config.enableOpenRouterItem && currentProvider != ModConfig.TranslationProvider.OPENROUTER) {
-                String k = getKeyName(keyTranslateOpenRouter, "Yok");
+            if (config.enableOpenRouterItem && config.openRouterApiKey != null && !config.openRouterApiKey.trim().isEmpty() && currentProvider != ModConfig.TranslationProvider.OPENROUTER) {
+                String k = getKeyName(keyTranslateOpenRouter, "-");
                 tooltip.add(Text.translatable("npctranslator.tooltip.translate.openrouter", k).formatted(Formatting.DARK_GRAY));
             }
             

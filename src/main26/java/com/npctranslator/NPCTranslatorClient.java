@@ -1160,20 +1160,20 @@ public class NPCTranslatorClient implements ClientModInitializer {
                     String k = getKeyName(keyTranslateGoogle, "G");
                     tooltip.add(Component.translatable("npctranslator.tooltip.translate.google", k).withStyle(ChatFormatting.DARK_GRAY));
                 }
-                if (config.enableGeminiItem) {
+                if (config.enableGeminiItem && config.geminiApiKey != null && !config.geminiApiKey.trim().isEmpty()) {
                     String k = getKeyName(keyTranslateGemini, "X");
                     tooltip.add(Component.translatable("npctranslator.tooltip.translate.gemini", k).withStyle(ChatFormatting.DARK_GRAY));
                 }
-                if (config.enableGroqItem) {
+                if (config.enableGroqItem && config.groqApiKey != null && !config.groqApiKey.trim().isEmpty()) {
                     String k = getKeyName(keyTranslateGroq, "C");
                     tooltip.add(Component.translatable("npctranslator.tooltip.translate.groq", k).withStyle(ChatFormatting.DARK_GRAY));
                 }
-                if (config.enableMistralItem) {
-                    String k = getKeyName(keyTranslateMistral, "Yok");
+                if (config.enableMistralItem && config.mistralApiKey != null && !config.mistralApiKey.trim().isEmpty()) {
+                    String k = getKeyName(keyTranslateMistral, "-");
                     tooltip.add(Component.translatable("npctranslator.tooltip.translate.mistral", k).withStyle(ChatFormatting.DARK_GRAY));
                 }
-                if (config.enableOpenRouterItem) {
-                    String k = getKeyName(keyTranslateOpenRouter, "Yok");
+                if (config.enableOpenRouterItem && config.openRouterApiKey != null && !config.openRouterApiKey.trim().isEmpty()) {
+                    String k = getKeyName(keyTranslateOpenRouter, "-");
                     tooltip.add(Component.translatable("npctranslator.tooltip.translate.openrouter", k).withStyle(ChatFormatting.DARK_GRAY));
                 }
             }
