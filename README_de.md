@@ -4,74 +4,111 @@
 
 # 🌍 NPC & Items Translator für Hypixel Skyblock & Mehr
 
-Die Sprachbarriere sollte kein Problem mehr sein, während Sie Ihre Lieblingsserver genießen. **NPC & Items Translator** ist ein vollständig anpassbarer, intelligenter clientseitiger Fabric-Mod, der NPC-Chatnachrichten, Item-Beschreibungen und GUI-Tooltips nahtlos in Ihre bevorzugte Sprache übersetzt!
+Die Sprachbarriere sollte kein Hindernis mehr sein, um Ihre Lieblings-Minecraft-Server zu genießen. **NPC & Items Translator** ist ein vollständig anpassbarer, intelligenter clientseitiger Fabric-Mod, der NPC-Dialoge, Item-Beschreibungen und GUI-Tooltips nahtlos mit KI-Genauigkeit und realistischer Sprachausgabe (TTS) in Ihre bevorzugte Sprache übersetzt!
 
-Dieser Mod wurde speziell für anspruchsvolle Spielmodi wie **Hypixel SkyBlock** entwickelt und verarbeitet komplexe Farbcodes, dynamische Texte (wie Live-Bazaar-Preise) und interaktive Chatnachrichten perfekt.
+Speziell für anspruchsvolle RPG/MMO-Spielmodi wie **Hypixel SkyBlock** entwickelt, verarbeitet dieser Mod komplexe Farbcodes, dynamische Texte (wie Live-Bazaar-Preise), interaktive Chatnachrichten und die UI-Lokalisierung für 17 Sprachen perfekt.
 
 ---
 
 ## ✨ Hauptfunktionen
 
 ### 💬 Interaktive Chat-Übersetzung
-Haben Sie es satt, Texte in Ihren Browser zu kopieren? Eine kleine Schaltfläche **[Translate]** (Übersetzen) erscheint automatisch neben den Chatnachrichten.  
-Klicken Sie darauf, um den Text sofort zu übersetzen!
+Haben Sie es satt, Texte in Ihren Browser zu kopieren? Eine saubere Schaltfläche **[Translate]** (Übersetzen) erscheint automatisch neben Chatnachrichten.  
+Klicken Sie darauf, um Dialoge sofort in Ihre Sprache zu übersetzen!
 
-- **Automatische Übersetzung:** Sie können die automatische Übersetzung für den Chat aktivieren.
-- **Nur NPCs übersetzen:** Wenn aktiviert, werden nur NPC-Nachrichten automatisch übersetzt. Normale Spielernachrichten bleiben unangetastet (die manuelle Übersetzungstaste bleibt für sie jedoch erhalten).
-- **Vollständig reversibel & sicher:** Klicken Sie jederzeit auf das **[TR]**-Tag, um den Text sofort in seinen ursprünglichen Zustand zurückzuversetzen. ALLE ursprünglichen interaktiven Chat-Klick-Ereignisse (wie *"Klicken Sie hier, um das Auktionshaus zu öffnen"*) bleiben vollständig erhalten!
+- **Automatische Übersetzung:** Übersetzt alle eingehenden Chatnachrichten automatisch ohne Klick.
+- **Nur NPCs übersetzen:** Übersetzt nur NPC-Dialoge, während der normale Spielerchat unberührt bleibt.
+- **Sicher & Reversibel:** Klicken Sie jederzeit auf das Sprach-Tag (`[DE]`, `[TR]` usw.), um den Originaltext wiederherzustellen. Alle interaktiven Klick-Ereignisse (*"Klicken, um Auktionshaus zu öffnen"* usw.) bleiben vollständig erhalten!
 
-### 📦 On-Demand Item-Tooltip-Übersetzung
-Fahren Sie mit der Maus über ein beliebiges Item und drücken Sie die anpassbaren Hotkeys, um die Item-Beschreibung mit Ihrer bevorzugten Übersetzungsmaschine zu übersetzen:
-- **`G`** — Übersetzen via **Google Translate** (Kostenlos, Unbegrenzt)
-- **`X`** — Übersetzen via **Gemini API** (Intelligent, Schnell)
-- **`C`** — Übersetzen via **Groq API** (Ultraschnelles LLM)
-- **`[Nicht zugewiesen]`** — Übersetzen via **Mistral API** *(Sie müssen in der Steuerung eine Taste zuweisen)*
-- **`[Nicht zugewiesen]`** — Übersetzen via **OpenRouter API** *(Sie müssen in der Steuerung eine Taste zuweisen)*
-- **`V`** — Übersetzung rückgängig machen
+### 🗣️ Integrierte Sprachausgabe (TTS - Text-to-Speech)
+Hören Sie NPC-Dialoge laut in Ihrer Sprache!
+- **Natürliche Sprachausgabe:** Liest übersetzte NPC-Nachrichten mithilfe der hochwertigen Google TTS-Engine automatisch vor.
+- **Vollständige Anpassung:** Passen Sie **Sprechgeschwindigkeit** (0.25x - 2.00x) und **Tonhöhe / Stimmlage** (0.60x - 1.40x) direkt im Menü an.
+- **Intelligente Warteschlange:** Schnelle Dialogfolgen werden flüssig und ohne Verzögerung nacheinander vorgelesen.
 
-*Hinweis: Wenn Sie dieselbe Übersetzungstaste zweimal drücken, fungiert sie als Schalter und setzt die Übersetzung zurück.*
+### 📦 Item-Tooltip-Übersetzung per Tastendruck
+Fahren Sie mit der Maus über ein beliebiges Item und drücken Sie benutzerdefinierte Tasten, um die Item-Beschreibung mit Ihrer bevorzugten Übersetzungs-Engine zu übersetzen:
+- **`G`** — Übersetzen via **Google Translate** (Kostenlos, Sofort)
+- **`X`** — Übersetzen via **Gemini AI** (Intelligent, Hohe Qualität)
+- **`C`** — Übersetzen via **Groq AI** (Ultraschnelles LLM)
+- **`[Belegbar]`** — Übersetzen via **Mistral API** *(In Steuerung belegbar)*
+- **`[Belegbar]`** — Übersetzen via **OpenRouter API** *(In Steuerung belegbar)*
+- **`V`** — Übersetzung auf Original zurücksetzen
 
-### 🎨 Makellose Erhaltung der Farbcodes
-Im Gegensatz zu einfachen Übersetzern, die die Minecraft-Formatierung zerstören, extrahiert dieser Mod die `§`-Farbcodes, übersetzt die rohe Bedeutung und fügt die Originalfarben präzise wieder ein.  
+*Hinweis: Wenn Sie dieselbe Übersetzungstaste zweimal drücken, wird die Übersetzung zurückgesetzt.*
+
+### 🎨 Makellose Farberhaltung
+Im Gegensatz zu einfachen Übersetzern, die das Minecraft-Format zerstören, extrahiert dieser Mod `§`-Farbcodes, übersetzt den Inhalt und fügt die Originalfarben exakt wieder ein.  
 Ihre **Epic** (Epischen) Items bleiben lila und Ihre **Legendary** (Legendären) Items bleiben orange!
 
-### 🛡️ Intelligente Fehlerbehandlung & API-Rückfall
-- Wenn Sie vergessen, Ihren API-Schlüssel einzugeben, oder einen falschen eingeben, erscheint unten im Item-Tooltip eine deutliche Warnung.
-- **Automatischer Rückfall bei Limit (Auto-Fallback):** Wenn ein KI-Modell sein Ratenlimit (Rate Limit 429) erreicht, wiederholt der Mod die Übersetzung sofort und im Hintergrund mit dem nächsten verfügbaren Modell desselben Anbieters!
+### 🛡️ Intelligente Fehlerbehandlung & Automatischer Modellwechsel
+- Wenn ein API-Schlüssel fehlt oder ungültig ist, wird direkt im Tooltip oder Chat eine verständliche Warnung angezeigt.
+- **Automatischer Modellwechsel bei Limit (Auto-Fallback):** Erreicht ein KI-Modell sein Ratenlimit (429), wechselt der Mod automatisch und lautlos zum **nächsten verfügbaren Modell** desselben Anbieters!
 
 ---
 
-## ⚙️ Übersetzungsmaschinen
+## 🌐 17 Unterstützte Sprachen (UI & Übersetzung)
 
-Sie haben die volle Kontrolle über das Übersetzungs-Backend über das Konfigurationsmenü (Befehl `/translate`, über ModMenu oder Taste **Z**). Der Mod unterstützt mehrere Modelle für beide KI-Engines. Fahren Sie im Spiel mit der Maus über die Einstellung, um detaillierte Modellvergleiche (RPM-Limits, beste Anwendungsfälle) zu sehen!
+Der Mod bietet vollständige UI-Lokalisierung und Übersetzung für **17 Hauptsprachen**:
 
-| Maschine | Beschreibung |
-|--------|-------------|
-| 🤖 **Gemini API** | Verwendet die neuesten Gemini-Modelle von Google (z. B. Gemini 2.5 Flash, Gemini Flash-Lite). Hervorragendes kontextuelles Verständnis und Beibehaltung der Formatierung. Erfordert einen kostenlosen API-Schlüssel von [Google AI Studio](https://aistudio.google.com). |
-| ⚡ **Groq API** | Verwendet ultraschnelle LLMs (wie Llama-3.3-70B, Qwen3), um Minecraft-Begriffe im Kontext zu verstehen. Erfordert einen kostenlosen API-Schlüssel von [console.groq.com](https://console.groq.com). |
-| 🌪️ **Mistral API** | Verwendet leistungsstarke Mistral-Modelle (z.B. Mistral Large). Zuverlässig und hochwertig. Erfordert einen kostenlosen API-Schlüssel von [console.mistral.ai](https://console.mistral.ai). |
-| 🌍 **OpenRouter API** | Zugriff auf eine Vielzahl von KI-Modellen (Claude, Llama, Qwen usw.) über eine einzige API. Erfordert einen kostenlosen API-Schlüssel von [openrouter.ai](https://openrouter.ai). |
-| 🌐 **Google Translate** | Möchten Sie keinen API-Schlüssel verwenden? Genießen Sie unbegrenzte, schnelle und völlig kostenlose Übersetzungen ohne Einrichtung. |
+| Sprache | Code | Nativer Name |
+| :--- | :--- | :--- |
+| 🇬🇧 Englisch | `en_us` | English |
+| 🇹🇷 Türkisch | `tr_tr` | Türkçe |
+| 🇨🇳 Chinesisch (Vereinfacht) | `zh_cn` | 简体中文 |
+| 🇪🇸 Spanisch | `es_es` | Español |
+| 🇮🇳 Hindi | `hi_in` | हिन्दी |
+| 🇸🇦 Arabisch | `ar_sa` | العربية |
+| 🇫🇷 Französisch | `fr_fr` | Français |
+| 🇷🇺 Russisch | `ru_ru` | Русский |
+| 🇧🇷 Portugiesisch (Brasilien) | `pt_br` | Português (Brasil) |
+| 🇮🇩 Indonesisch | `id_id` | Bahasa Indonesia |
+| 🇩🇪 Deutsch | `de_de` | Deutsch |
+| 🇯🇵 Japanisch | `ja_jp` | 日本語 |
+| 🇰🇷 Koreanisch | `ko_kr` | 한국어 |
+| 🇻🇳 Vietnamesisch | `vi_vn` | Tiếng Việt |
+| 🇮🇹 Italienisch | `it_it` | Italiano |
+| 🇵🇱 Polnisch | `pl_pl` | Polski |
+| 🇺🇦 Ukrainisch | `uk_ua` | Українська |
 
 ---
 
-## 🔧 Konfiguration & Einstellungen
+## ⚙️ Übersetzungs-Engines
 
-- **In-Game-GUI:** Befehl `/translate`, Tastenkürzel **Z** oder ESC → Mods → NPC & Items Translator
-- **Dynamische Sprache:** Automatische Übersetzung in Ihre Minecraft-Client-Sprache oder Auswahl einer spezifischen Zielsprache.
-- **Tastenkürzel:** `Steuerung` → `Tastenbelegung` → **NPC & Eşya Çevirici**
+Sie können die Übersetzungs-Engine im Konfigurationsmenü (`/translate`, ModMenu oder Taste **Z**) frei wählen.
+
+| Engine | Beschreibung |
+|---|---|
+| 🤖 **Gemini AI** | Neueste Gemini-Modelle von Google (Gemini 2.5 Flash, Flash-Lite). Kostenloser Schlüssel auf [Google AI Studio](https://aistudio.google.com). |
+| ⚡ **Groq AI** | Ultraschnelle LLMs (Llama 3.3 70B, Qwen3) für bestes Verständnis von Minecraft-Begriffen. Kostenloser Schlüssel auf [console.groq.com](https://console.groq.com). |
+| 🌪️ **Mistral AI** | Leistungsstarke Mistral-Modelle (Mistral Large usw.). Zuverlässig und präzise. Kostenloser Schlüssel auf [console.mistral.ai](https://console.mistral.ai). |
+| 🌍 **OpenRouter AI** | Zugriff auf Hunderte Modelle (Claude, Llama, Qwen, DeepSeek) über eine einzige API. Schlüssel auf [openrouter.ai](https://openrouter.ai). |
+| 🌐 **Google Translate** | Kein API-Schlüssel nötig! Unbegrenzte, schnelle und völlig kostenlose Übersetzungen. |
+
+---
+
+## 🔧 Konfiguration & Befehle
+
+- **In-Game-Menü:** Befehl `/translate`, Tastenkürzel **`Z`** oder `ESC → Optionen → Mods → NPC & Items Translator`
+- **Dynamische Sprache:** Automatische Übersetzung in Ihre Minecraft-Sprache oder Auswahl einer festen Zielsprache.
+- **Tastaturbelegung:** `Optionen → Steuerung → Tastenbelegung → NPC & Items Translator`
+- **Wörterbuch zurücksetzen:** `/translate DeleteDict` oder über das In-Game-Hub-Menü.
 
 ---
 
 ## 📦 Kompatibilität & Anforderungen
 
 - **Loader:** Fabric
-- **Minecraft:** 1.21.11, 1.21.4 (26.1, 26.2)
-- **Erforderlich:** Fabric API ([Modrinth](https://modrinth.com/mod/fabric-api) / [CurseForge](https://www.curseforge.com/minecraft/mc-mods/fabric-api)), YetAnotherConfigLib ([Modrinth](https://modrinth.com/mod/yacl) / [CurseForge](https://www.curseforge.com/minecraft/mc-mods/yacl)), ModMenu ([Modrinth](https://modrinth.com/mod/modmenu) / [CurseForge](https://www.curseforge.com/minecraft/mc-mods/modmenu))
-- **Seite:** NUR Client-Seite (Client-side) — sicher auf jedem Multiplayer-Server, einschließlich Hypixel, zu verwenden!
+- **Unterstützte Minecraft-Versionen:** `1.21.11`, `26.1`, `26.2`
+- **Erforderliche Mods:** 
+  - [Fabric API](https://modrinth.com/mod/fabric-api)
+  - [YetAnotherConfigLib (YACL)](https://modrinth.com/mod/yacl)
+  - [ModMenu](https://modrinth.com/mod/modmenu)
+- **Seite:** NUR Clientseitig (Client-side) — 100% sicher auf allen Multiplayer-Servern einschließlich Hypixel!
 
 ---
 
 ## 📄 Lizenz
 
 MIT-Lizenz
+
