@@ -181,11 +181,10 @@ public class NPCTranslatorClient implements ClientModInitializer {
 
             MutableText originalMessage = text.copy();
             MutableText translateButton = Text.translatable("npctranslator.button")
-                    .append(" ")
                     .styled(style -> style.withColor(Formatting.AQUA)
                             .withClickEvent(new ClickEvent.RunCommand("/translate_npc " + msgId))
                             .withHoverEvent(new HoverEvent.ShowText(Text.translatable("npctranslator.hover"))));
-            return Text.empty().append(translateButton).append(originalMessage);
+            return Text.empty().append(originalMessage).append(" ").append(translateButton);
         });
 
         net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents.END_CLIENT_TICK.register(client -> {
