@@ -19,7 +19,9 @@ import com.mojang.blaze3d.platform.Window;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.network.chat.ClickEvent;
 import net.minecraft.network.chat.HoverEvent;
+import net.minecraft.network.chat.MessageSignature;
 import net.minecraft.network.chat.MutableComponent;
+import net.minecraft.network.chat.PlayerChatMessage;
 import net.minecraft.network.chat.Style;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.TextColor;
@@ -101,25 +103,33 @@ public class NPCTranslatorClient implements ClientModInitializer {
     public static void setScreen(Minecraft client, Screen screen) {
         if (client == null) return;
         try {
+            // 26.2+ uses this entry point to apply the screen change and render it
+            // immediately, keeping SDL mouse capture in sync when a screen closes.
+            java.lang.reflect.Method setScreenMethod = client.getClass().getMethod("setScreenAndShow", Screen.class);
+            setScreenMethod.invoke(client, screen);
+            return;
+        } catch (NoSuchMethodException ignored) {
+            // Fall through to the older version-specific APIs.
+        } catch (Exception e) {
+            e.printStackTrace();
+            return;
+        }
+
+        try {
             // Try 1.21.11 and 26.1
             java.lang.reflect.Method setScreenMethod = client.getClass().getMethod("setScreen", Screen.class);
             setScreenMethod.invoke(client, screen);
-        } catch (NoSuchMethodException e) {
-            try {
-                // Try 26.2 and 26.3
-                java.lang.reflect.Method setScreenMethod = client.gui.getClass().getMethod("setScreen", Screen.class);
-                setScreenMethod.invoke(client.gui, screen);
-            } catch (NoSuchMethodException ex) {
-                try {
-                    // Try 26.3 setScreenAndShow
-                    java.lang.reflect.Method setScreenMethod = client.getClass().getMethod("setScreenAndShow", Screen.class);
-                    setScreenMethod.invoke(client, screen);
-                } catch (Exception ex2) {
-                    ex2.printStackTrace();
-                }
-            } catch (Exception ex) {
-                ex.printStackTrace();
-            }
+            return;
+        } catch (NoSuchMethodException ignored) {
+            // Fall through to 26.2's Gui API.
+        } catch (Exception e) {
+            e.printStackTrace();
+            return;
+        }
+
+        try {
+            java.lang.reflect.Method setScreenMethod = client.gui.getClass().getMethod("setScreen", Screen.class);
+            setScreenMethod.invoke(client.gui, screen);
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -326,6 +336,13 @@ public class NPCTranslatorClient implements ClientModInitializer {
             }
         });
 
+        // 26.3 routes player chat through CHAT instead of MODIFY_GAME. The event
+        // is notification-only, so replace the newly added chat line after
+        // vanilla has inserted it into the chat history.
+        ClientReceiveMessageEvents.CHAT.register((text, signedMessage, sender, chatType, timestamp) -> {
+            handlePlayerChatMessage(text, signedMessage);
+        });
+
         net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents.END_CLIENT_TICK.register(client -> {
             boolean pGoogle = isKeyCurrentlyDown(keyTranslateGoogle);
             googleJustPressed = pGoogle && !lastGoogleState;
@@ -437,38 +454,162 @@ public class NPCTranslatorClient implements ClientModInitializer {
         config = ModConfig.INSTANCE;
     }
 
-    private static void replaceMessageInChat(Minecraft client, String searchMarker, Component newMessage) {
+    private static void handlePlayerChatMessage(Component text, PlayerChatMessage signedMessage) {
+        if (config == null || !config.enabled) return;
+
+        String rawText = text.getString();
+        if (rawText.trim().length() < 2) return;
+
+        String buttonText = Component.translatable("npctranslator.button").getString();
+        if (!buttonText.isEmpty() && rawText.contains(buttonText)) {
+            return;
+        }
+
+        String msgId = String.valueOf(messageCounter.incrementAndGet());
+        String encodedText = Base64.getEncoder().encodeToString(rawText.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        ORIGINAL_MESSAGES.put(msgId, text.copy());
+        MESSAGE_ID_TO_BASE64.put(msgId, encodedText);
+
+        String cachedTranslation = TRANSLATION_MEMORY_CACHE.get(rawText);
+        if (cachedTranslation == null && config.chatTranslationProvider != null) {
+            cachedTranslation = TranslationDictionary.get(rawText, config.chatTranslationProvider.name());
+        }
+        com.npctranslator.chatbubble.ChatBubbleManager.onChatMessage(msgId, rawText, cachedTranslation);
+
+        boolean shouldAutoTranslate = config.autoTranslateChat
+                && (!config.onlyTranslateNpcChat || rawText.contains("[NPC] "));
+        if (shouldAutoTranslate) {
+            handleTranslation(msgId);
+        }
+
+        if (!shouldAutoTranslate && config.enableTts) {
+            if (config.ttsMode == ModConfig.TtsMode.ALL_CHAT
+                    || (config.ttsMode == ModConfig.TtsMode.NPC_ONLY
+                    && (rawText.contains("[NPC] ") || rawText.contains("NPC")))) {
+                speakText(rawText);
+            }
+        }
+
+        if (!shouldAutoTranslate && !config.showTranslateButton) return;
+
+        Minecraft client = Minecraft.getInstance();
+        MessageSignature signature = signedMessage == null ? null : signedMessage.signature();
+        replacePlayerChatMessageWhenAvailable(client, rawText, signature, msgId, shouldAutoTranslate, 3);
+    }
+
+    private static void replacePlayerChatMessageWhenAvailable(Minecraft client, String rawText,
+                                                               MessageSignature signature, String msgId,
+                                                               boolean shouldAutoTranslate, int retries) {
+        if (client == null) return;
+        // CHAT is fired before vanilla adds the line to ChatComponent. execute()
+        // runs inline when already on the client thread, so use schedule() to
+        // defer the lookup until vanilla has finished inserting the message.
+        client.schedule(() -> {
+            if (replacePlayerChatMessage(client, rawText, signature, msgId, shouldAutoTranslate)
+                    || retries <= 0) return;
+            replacePlayerChatMessageWhenAvailable(client, rawText, signature, msgId, shouldAutoTranslate, retries - 1);
+        });
+    }
+
+    private static boolean replacePlayerChatMessage(Minecraft client, String rawText,
+                                                     MessageSignature signature, String msgId,
+                                                     boolean shouldAutoTranslate) {
         ChatComponent chatHud = getChatComponent(client);
-        if (chatHud == null) return;
+        if (chatHud == null) return false;
+
+        ChatHudAccessor accessor = (ChatHudAccessor) chatHud;
+        List<GuiMessage> messages = accessor.getMessages();
+        int messageIndex = -1;
+
+        // A signed message gives us an unambiguous identity even when another
+        // mod has inserted a component, such as Chat Heads' player sprite,
+        // before the player's name.
+        if (signature != null) {
+            for (int i = messages.size() - 1; i >= 0; i--) {
+                if (Objects.equals(messages.get(i).signature(), signature)) {
+                    messageIndex = i;
+                    break;
+                }
+            }
+        }
+
+        // Disguised/profileless chat has no signature, so retain the text
+        // fallback for that path and for servers that strip signatures.
+        if (messageIndex < 0) {
+            String searchText = rawText.trim();
+            for (int i = messages.size() - 1; i >= 0; i--) {
+                String lineText = messages.get(i).content().getString();
+                if (lineText.contains(searchText) || searchText.contains(lineText.trim())) {
+                    messageIndex = i;
+                    break;
+                }
+            }
+        }
+
+        if (messageIndex < 0) return false;
+
+        GuiMessage line = messages.get(messageIndex);
+        Component originalContent = line.content();
+        Component replacement;
+        if (shouldAutoTranslate) {
+            replacement = Component.empty().append(originalContent.copy())
+                    .append(Component.literal("\u200B")
+                            .withStyle(style -> style.withClickEvent(new ClickEvent.RunCommand("/translate_npc " + msgId))));
+        } else {
+            MutableComponent translateButton = Component.translatable("npctranslator.button")
+                    .withStyle(style -> style.withColor(ChatFormatting.AQUA)
+                            .withClickEvent(new ClickEvent.RunCommand("/translate_npc " + msgId))
+                            .withHoverEvent(new HoverEvent.ShowText(Component.translatable("npctranslator.hover"))));
+
+            if (config.buttonPosition == ModConfig.ButtonPosition.END) {
+                replacement = Component.empty().append(originalContent.copy()).append(" ").append(translateButton);
+            } else {
+                replacement = Component.empty().append(translateButton).append(" ").append(originalContent.copy());
+            }
+        }
+
+        GuiMessage newLine = new GuiMessage(line.addedTime(), replacement,
+                line.signature(), line.source(), line.tag());
+        messages.set(messageIndex, newLine);
+        int scroll = accessor.getScrolledLines();
+        accessor.invokeRefresh();
+        accessor.setScrolledLines(scroll);
+        return true;
+    }
+
+    private static boolean replaceMessageInChat(Minecraft client, String searchMarker, Component newMessage) {
+        ChatComponent chatHud = getChatComponent(client);
+        if (chatHud == null) return false;
         ChatHudAccessor accessor = (ChatHudAccessor) chatHud;
         List<GuiMessage> messages = accessor.getMessages();
         // First try exact marker match (for unique ID commands embedded in click events)
-        for (int i = 0; i < messages.size(); i++) {
+        for (int i = messages.size() - 1; i >= 0; i--) {
             GuiMessage line = messages.get(i);
             String fullStyled = extractClickCommands(line.content());
             if (fullStyled.contains(searchMarker)) {
-                GuiMessage newLine = new GuiMessage(line.addedTime(), newMessage, null, null, null);
+                GuiMessage newLine = new GuiMessage(line.addedTime(), newMessage, line.signature(), line.source(), line.tag());
                 messages.set(i, newLine);
                 int scroll = accessor.getScrolledLines();
                 accessor.invokeRefresh();
                 accessor.setScrolledLines(scroll);
-                return;
+                return true;
             }
         }
         // Fallback: text content match (for auto-translate)
         String searchText = searchMarker.trim();
-        for (int i = 0; i < messages.size(); i++) {
+        for (int i = messages.size() - 1; i >= 0; i--) {
             GuiMessage line = messages.get(i);
             String lineText = line.content().getString();
             if (lineText.contains(searchText) || searchText.contains(lineText.trim())) {
-                GuiMessage newLine = new GuiMessage(line.addedTime(), newMessage, null, null, null);
+                GuiMessage newLine = new GuiMessage(line.addedTime(), newMessage, line.signature(), line.source(), line.tag());
                 messages.set(i, newLine);
                 int scroll = accessor.getScrolledLines();
                 accessor.invokeRefresh();
                 accessor.setScrolledLines(scroll);
-                return;
+                return true;
             }
         }
+        return false;
     }
 
     private static String extractClickCommands(Component text) {
